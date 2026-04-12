@@ -7,7 +7,7 @@ function MainLayout() {
 	const { isAuthenticated } = useAuth();
 	const location = useLocation();
 
-	const appPaths = ['/dashboard', '/import', '/history'];
+	const appPaths = ['/dashboard', '/import', '/history', '/profile', '/admin'];
 	const showSideNav =
 		isAuthenticated && appPaths.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
 

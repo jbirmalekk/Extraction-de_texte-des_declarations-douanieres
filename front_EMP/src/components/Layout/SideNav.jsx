@@ -17,13 +17,15 @@ import { useAuth } from '../../hooks/useAuth';
 const appLinks = [
 	{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 	{ to: '/import', label: 'Import', icon: FileUp },
-	{ to: '/history', label: 'Historique', icon: History },
+	{ to: '/history', label: 'Historique', icon: History, adminOnly: true },
+	{ to: '/admin/users', label: 'Utilisateurs', icon: ShieldCheck, adminOnly: true },
 ];
 
 function SideNav() {
 	const { user, logout } = useAuth();
 	const location = useLocation();
 	const [mobileOpen, setMobileOpen] = useState(false);
+	const visibleLinks = appLinks.filter((link) => !link.adminOnly || user?.role === 'admin');
 
 	useEffect(() => {
 		setMobileOpen(false);
@@ -70,7 +72,7 @@ function SideNav() {
 						<Home size={18} />
 						<span>Accueil</span>
 					</NavLink>
-					{appLinks.map((link) => {
+					{visibleLinks.map((link) => {
 						const Icon = link.icon;
 						return (
 							<NavLink
@@ -90,6 +92,10 @@ function SideNav() {
 						<RoleIcon size={15} /> {roleLabel}
 					</span>
 					<p className="side-user-email">{user?.email || 'user@example.com'}</p>
+					<NavLink to="/profile" className={({ isActive }) => `side-profile-btn ${isActive ? 'active' : ''}`}>
+						<UserIcon size={16} />
+						<span>Mon profil</span>
+					</NavLink>
 					<button type="button" className="side-logout-btn" onClick={handleLogout}>
 						<LogOut size={16} />
 						<span>Déconnexion</span>

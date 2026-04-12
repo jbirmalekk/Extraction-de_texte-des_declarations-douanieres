@@ -1,19 +1,32 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { LogOut, ShieldCheck, User as UserIcon } from 'lucide-react';
 import empLogo from '../../assets/emp.png';
 import { useAuth } from '../../hooks/useAuth';
 
-const links = [
-	{ to: '/', label: 'Accueil' },
-	{ to: '/dashboard', label: 'Dashboard' },
-	{ to: '/import', label: 'Import documents' },
-	{ to: '/history', label: 'Historique' },
+const publicLinks = [
+	{ type: 'route', to: '/', label: 'Accueil' },
+	{ type: 'hash', href: '/#details', label: 'Detail' },
+	{ type: 'hash', href: '/#contact', label: 'Contact' },
+];
+
+const privateLinks = [
+	{ type: 'route', to: '/dashboard', label: 'Dashboard' },
+	{ type: 'hash', href: '/#details', label: 'Detail' },
+	{ type: 'hash', href: '/#contact', label: 'Contact' },
 ];
 
 function Navbar() {
 	const { isAuthenticated, user, logout } = useAuth();
+	const location = useLocation();
+	const links = isAuthenticated ? privateLinks : publicLinks;
 	const roleLabel = user?.role === 'admin' ? 'Administrateur' : 'Utilisateur';
 	const RoleIcon = user?.role === 'admin' ? ShieldCheck : UserIcon;
+
+	const isHashLinkActive = (href) => {
+		const [targetPath = '/', hashPart = ''] = href.split('#');
+		const targetHash = hashPart ? `#${hashPart}` : '';
+		return location.pathname === targetPath && location.hash === targetHash;
+	};
 
 	const handleLogout = async () => {
 		await logout();
@@ -29,29 +42,51 @@ function Navbar() {
 				</div>
 			</div>
 			<nav className="navbar-links">
-				{links.map((link) => (
-					<NavLink
-						key={link.to}
-						to={link.to}
-						className={({ isActive }) => `navbar-link ${isActive ? 'active' : ''}`}
-						end={link.to === '/'}
-					>
-						{link.label}
-					</NavLink>
-				))}
+				{links.map((link) =>
+					link.type === 'hash' ? (
+						<Link
+							key={link.href}
+							to={link.href}
+							className={`navbar-link ${isHashLinkActive(link.href) ? 'active' : ''}`}
+						>
+							{link.label}
+						</Link>
+					) : (
+						<NavLink
+							key={link.to}
+							to={link.to}
+							className={({ isActive }) => {
+								const keepHomeInactiveOnHash = link.to === '/' && Boolean(location.hash);
+								return `navbar-link ${isActive && !keepHomeInactiveOnHash ? 'active' : ''}`;
+							}}
+							end={link.to === '/'}
+						>
+							{link.label}
+						</NavLink>
+					),
+				)}
 			</nav>
-				{isAuthenticated && (
-					<div className="navbar-right">
+			<div className="navbar-right">
+				{isAuthenticated ? (
+					<>
 						<span className="role-badge">
 							<RoleIcon size={16} /> {roleLabel}
 						</span>
 						<span className="user-email">{user?.email || 'user@example.com'}</span>
+						<NavLink to="/login" className="login-btn" title="Se connecter avec un autre compte">
+							Login
+						</NavLink>
 						<button className="logout-btn" onClick={handleLogout}>
 							<LogOut size={16} />
 							Logout
 						</button>
-					</div>
+					</>
+				) : (
+					<NavLink to="/login" className="login-btn">
+						Se connecter
+					</NavLink>
 				)}
+			</div>
 		</header>
 	);
 }

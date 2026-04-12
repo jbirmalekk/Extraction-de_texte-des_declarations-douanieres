@@ -1,5 +1,6 @@
 import { ArrowRight, CheckCircle, Clock, Database, FileText, FileUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const stats = [
   { label: 'Documents processed', value: 142, icon: FileText, color: '#2563eb' },
@@ -17,6 +18,8 @@ const activities = [
 ];
 
 function DashboardPage() {
+  const { user } = useAuth();
+
   return (
     <>
       <section className="dashboard-hero modern">
@@ -50,7 +53,11 @@ function DashboardPage() {
       <section className="activities">
         <div className="section-header">
           <h2>Recent activity</h2>
-          <Link to="/history" className="text-link">See all</Link>
+          {user?.role === 'admin' ? (
+            <Link to="/history" className="text-link">See all</Link>
+          ) : (
+            <Link to="/import" className="text-link">Upload more</Link>
+          )}
         </div>
         <div className="activity-table">
           <div className="table-head">

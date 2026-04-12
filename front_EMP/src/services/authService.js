@@ -8,8 +8,8 @@ export const login = async ({ email, password }) => {
 	return data;
 };
 
-export const signup = async ({ fullName, email, password, role = 'user' }) => {
-	const payload = { username: fullName, email, password, role };
+export const signup = async ({ fullName, email, password }) => {
+	const payload = { username: fullName, email, password };
 	const { data } = await apiClient.post('/auth/signup', payload);
 	return data;
 };

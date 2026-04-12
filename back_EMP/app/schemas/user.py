@@ -35,6 +35,13 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=8, max_length=100)
 
 
+class AdminUserUpdate(BaseModel):
+    """Mise a jour admin limitee a username/email/role."""
+    username: Optional[str] = Field(None, min_length=3, max_length=150)
+    email: Optional[EmailStr] = None
+    role: Optional[UserRole] = None
+
+
 class UserLogin(BaseModel):
     """Schéma pour le login avec email et password"""
     email: EmailStr
@@ -52,10 +59,24 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=100)
 
 
+class ProfileUpdate(BaseModel):
+    """Mise a jour du profil utilisateur courant (sans role)."""
+    username: Optional[str] = Field(None, min_length=3, max_length=150)
+    email: Optional[EmailStr] = None
+
+
+class PasswordChange(BaseModel):
+    """Changement de mot de passe pour l'utilisateur connecte."""
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+
 class UserOut(UserBase):
     """Schéma pour renvoyer les infos utilisateur (sans mot de passe)"""
     id: int
     is_active: bool
+    is_email_verified: bool
+    is_approved: bool
     created_at: Optional[datetime] = None
     
     class Config:
@@ -67,6 +88,8 @@ class UserInDB(UserBase):
     id: int
     hashed_password: str
     is_active: bool
+    is_email_verified: bool
+    is_approved: bool
     
     class Config:
         from_attributes = True
@@ -82,3 +105,20 @@ class TokenData(BaseModel):
     """Données extraites du token JWT"""
     username: Optional[str] = None
     jti: Optional[str] = None
+
+
+class EmailVerification(BaseModel):
+    """Schéma pour vérifier l'email avec un token"""
+    token: str
+
+
+class SignupResponse(UserOut):
+    """Réponse lors de l'inscription"""
+    message: str = "Inscription réussie. Veuillez vérifier votre email pour valider votre compte."
+
+
+class ApprovalResponse(BaseModel):
+    """Réponse pour l'approbation/rejet d'un utilisateur"""
+    user_id: int
+    is_approved: bool
+    message: str

@@ -1,17 +1,14 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Lock, Mail, ShieldCheck, User } from 'lucide-react';
-
-const roles = [
-	{ value: 'user', label: 'User', Icon: User },
-	{ value: 'admin', label: 'Administrator', Icon: ShieldCheck },
-];
+import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { signup } from '../../services/authService';
 
 function RegisterForm({ onSuccess }) {
+	const { login } = useAuth();
 	const [fullName, setFullName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [confirmPassword, setConfirmPassword] = useState('');
-	const [role, setRole] = useState(roles[0].value);
 	const [showPassword, setShowPassword] = useState(false);
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 	const [loading, setLoading] = useState(false);
@@ -34,9 +31,9 @@ function RegisterForm({ onSuccess }) {
 			showToast('error', 'Passwords do not match');
 			return false;
 		}
-		if (password.length < 6) {
-			setPasswordError('Password must be at least 6 characters');
-			showToast('error', 'Password must be at least 6 characters');
+		if (password.length < 8) {
+			setPasswordError('Password must be at least 8 characters');
+			showToast('error', 'Password must be at least 8 characters');
 			return false;
 		}
 		setPasswordError('');
@@ -54,20 +51,19 @@ function RegisterForm({ onSuccess }) {
 		setError('');
 
 		try {
-			const storedUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-			const emailExists = storedUsers.some((user) => user.email.toLowerCase() === email.toLowerCase());
-			if (emailExists) {
-				showToast('error', 'This email is already registered');
-				setLoading(false);
-				return;
-			}
+			const normalizedFullName = fullName.trim();
+			const normalizedEmail = email.trim().toLowerCase();
 
-			const newUser = { fullName, email, role, createdAt: new Date().toISOString() };
-			localStorage.setItem('registeredUsers', JSON.stringify([...storedUsers, newUser]));
-			localStorage.setItem('currentUser', JSON.stringify(newUser));
+			await signup({
+				fullName: normalizedFullName,
+				email: normalizedEmail,
+				password,
+			});
 
-			showToast('success', 'Account created successfully! Welcome to CustomsOCR Pro.');
-			onSuccess?.(newUser);
+			await login({ email: normalizedEmail, password });
+
+			showToast('success', 'Account created successfully!');
+			onSuccess?.();
 		} catch (err) {
 			const message = err?.response?.data?.detail || 'Unable to create account';
 			setError(message);
@@ -165,25 +161,6 @@ function RegisterForm({ onSuccess }) {
 							{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
 						</button>
 					</div>
-				</div>
-			</div>
-
-			<div className="form-group">
-				<label className="role-hint">Your role in the organization</label>
-				<div className="role-toggle">
-					{roles.map(({ value, label, Icon }) => (
-						<button
-							key={value}
-							type="button"
-							className={`role-option ${role === value ? 'active' : ''}`}
-							onClick={() => setRole(value)}
-						>
-							<span className="role-icon">
-								<Icon size={18} />
-							</span>
-							<span className="role-label">{label}</span>
-						</button>
-					))}
 				</div>
 			</div>
 

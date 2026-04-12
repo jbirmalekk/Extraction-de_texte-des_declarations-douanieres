@@ -85,6 +85,25 @@ def create_reset_token(subject: str, expires_minutes: int = 15) -> str:
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
+def create_email_verification_token(email: str, expires_minutes: int = 24 * 60) -> str:
+    """Crée un token de vérification d'email (24h par défaut)."""
+    expires_delta = timedelta(minutes=expires_minutes)
+    to_encode = {
+        "sub": email,
+        "scope": "email_verification",
+        "exp": datetime.utcnow() + expires_delta,
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def decode_email_verification_token(token: str) -> dict:
+    """Décode un token de vérification d'email et vérifie le scope."""
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    if payload.get("scope") != "email_verification":
+        raise JWTError("Invalid email verification token scope")
+    return payload
+
+
 def decode_reset_token(token: str) -> dict:
     """Décode un token de reset et vérifie le scope."""
     payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

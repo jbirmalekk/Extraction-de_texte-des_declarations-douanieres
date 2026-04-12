@@ -8,6 +8,7 @@ export const AuthContext = createContext({
 	isAuthenticated: false,
 	login: async () => {},
 	logout: async () => {},
+	refreshUser: async () => {},
 });
 
 export function AuthProvider({ children }) {
@@ -36,16 +37,21 @@ export function AuthProvider({ children }) {
 		bootstrap();
 	}, []);
 
+	const refreshUser = useCallback(async () => {
+		const me = await getMe();
+		setUser(me);
+		return me;
+	}, []);
+
 	const login = useCallback(async (credentials) => {
 		const data = await loginService(credentials);
 		try {
-			const me = await getMe();
-			setUser(me);
+			await refreshUser();
 		} catch (error) {
 			setUser(null);
 		}
 		return data;
-	}, []);
+	}, [refreshUser]);
 
 	const logout = useCallback(async () => {
 		try {
@@ -65,8 +71,9 @@ export function AuthProvider({ children }) {
 			isAuthenticated: Boolean(user),
 			login,
 			logout,
+			refreshUser,
 		}),
-		[user, loading, login, logout],
+		[user, loading, login, logout, refreshUser],
 	);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

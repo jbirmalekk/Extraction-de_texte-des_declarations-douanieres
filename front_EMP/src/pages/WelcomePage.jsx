@@ -1,6 +1,24 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 function WelcomePage() {
+	const location = useLocation();
+
+	useEffect(() => {
+		if (!location.hash) {
+			return;
+		}
+
+		const targetId = location.hash.replace('#', '');
+		const targetElement = document.getElementById(targetId);
+
+		if (targetElement) {
+			window.requestAnimationFrame(() => {
+				targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			});
+		}
+	}, [location.hash]);
+
 	return (
 		<div className="welcome-container">
 			<main className="welcome-main">
@@ -47,6 +65,38 @@ function WelcomePage() {
 					</div>
 				</div>
 			</main>
+
+			<section id="details" className="welcome-secondary details-section">
+				<div className="welcome-section-head">
+					<p className="welcome-kicker">Detail</p>
+					<h2>Pourquoi EMP SmartOCR</h2>
+				</div>
+				<div className="details-grid">
+					<article className="detail-card">
+						<h3>Extraction rapide</h3>
+						<p>Capture automatique des donnees clefs depuis vos documents en quelques secondes.</p>
+					</article>
+					<article className="detail-card">
+						<h3>Validation intelligente</h3>
+						<p>Controle de coherence pour limiter les erreurs manuelles avant integration.</p>
+					</article>
+					<article className="detail-card">
+						<h3>Suivi centralise</h3>
+						<p>Historique clair des imports et du statut de traitement de chaque document.</p>
+					</article>
+				</div>
+			</section>
+
+			<section id="contact" className="welcome-secondary contact-section">
+				<div className="welcome-section-head">
+					<p className="welcome-kicker">Contact</p>
+					<h2>Besoin d&apos;aide ou d&apos;une demo</h2>
+				</div>
+				<div className="contact-card">
+					<p>Notre equipe peut vous aider a configurer votre flux OCR selon vos besoins metier.</p>
+					<a href="mailto:contact@emp-ocr.com" className="contact-link">contact@emp-ocr.com</a>
+				</div>
+			</section>
 		</div>
 	);
 }

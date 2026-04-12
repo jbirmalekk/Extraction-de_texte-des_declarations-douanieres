@@ -45,55 +45,76 @@ function ResetPasswordPage() {
 	};
 
 	return (
-		<div className="auth-container">
-			<div className="auth-card">
-				<div className="auth-header">
-					<Link to="/" className="auth-logo">
-						<img src={empLogo} alt="EMP Logo" className="logo-img" />
-						<span>EMP SmartOCR</span>
-					</Link>
-					<h1>Reset password</h1>
-					<p className="auth-subtitle">Choose a new password.</p>
+		<div className="auth-container fancy-auth-bg">
+			<Link to="/login" className="auth-back">
+				<span className="auth-back-arrow">←</span>
+				<span>Login</span>
+			</Link>
+			<div className="auth-blob auth-blob-one" />
+			<div className="auth-blob auth-blob-two" />
+			<div className="auth-split">
+				<div className="accent-panel">
+					<div className="accent-content">
+						<div className="accent-brand">
+							<img src={empLogo} alt="EMP Logo" className="accent-logo" />
+							<span className="accent-name">EMP SmartOCR</span>
+						</div>
+						<h2>Create a new password</h2>
+						<p>Use a strong password with at least 8 characters.</p>
+						<Link to="/login" className="accent-cta">
+							Go to login
+						</Link>
+					</div>
 				</div>
 
-				<form onSubmit={handleSubmit} className="auth-form">
-					<div className="form-group">
-						<label htmlFor="password">New password</label>
-						<input
-							id="password"
-							type="password"
-							className="form-input"
-							placeholder="Enter new password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							required
-					/>
+				<div className="form-panel fade-up">
+					<div className="auth-header split-header">
+						<h1>Reset password</h1>
+						<p className="auth-subtitle">Choose a new password.</p>
 					</div>
 
-					<div className="form-group">
-						<label htmlFor="confirmPassword">Confirm password</label>
-						<input
-							id="confirmPassword"
-							type="password"
-							className="form-input"
-							placeholder="Confirm new password"
-							value={confirmPassword}
-							onChange={(e) => setConfirmPassword(e.target.value)}
-							required
-					/>
-					</div>
+					<form onSubmit={handleSubmit} className="auth-form">
+						<div className="form-group">
+							<label htmlFor="password">New password</label>
+							<input
+								id="password"
+								type="password"
+								className="form-input"
+								placeholder="Enter new password"
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								required
+							/>
+						</div>
 
-					{message && <div className="success-message">{message}</div>}
-					{error && <div className="error-message">{error}</div>}
+						<div className="form-group">
+							<label htmlFor="confirmPassword">Confirm password</label>
+							<input
+								id="confirmPassword"
+								type="password"
+								className="form-input"
+								placeholder="Confirm new password"
+								value={confirmPassword}
+								onChange={(e) => setConfirmPassword(e.target.value)}
+								required
+							/>
+						</div>
 
-					<button type="submit" className="auth-button" disabled={loading}>
-						{loading ? 'Resetting...' : 'Reset password'}
-					</button>
-				</form>
+						{message && <div className="success-message">{message}</div>}
+						{error && <div className="error-message">{error}</div>}
 
-				<p className="auth-footer">
-					Back to <Link to="/login" className="auth-link">Sign in</Link>
-				</p>
+						<button type="submit" className="auth-button" disabled={loading}>
+							{loading ? 'Resetting...' : 'Reset password'}
+						</button>
+					</form>
+
+					<p className="auth-footer">
+						Back to{' '}
+						<Link to="/login" className="auth-link">
+							Sign in
+						</Link>
+					</p>
+				</div>
 			</div>
 		</div>
 	);
