@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, FileBadge2, ShieldCheck, Sparkles, Upload } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { AlertTriangle, CheckCircle2, FileBadge2, ShieldCheck, Sparkles, Upload } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import DropZone from '../components/Import/DropZone';
 import FilePreview from '../components/Import/FilePreview';
 import FileTypeSelector from '../components/Import/FileTypeSelector';
 import UploadProgress from '../components/Import/UploadProgress';
+import { extractOcrDocument } from '../services/ocrService';
+import { DEFAULT_DOCUMENT_ID, mapBackendResultToFields } from '../utils/ocrFields';
 
 const fileTypeOptions = [
 	{
@@ -19,69 +21,112 @@ const fileTypeOptions = [
 		description: 'Capture vendeur, client et details de lignes',
 		badge: 'Nouveau',
 	},
-	{
-		id: 'manifest',
-		label: 'Manifeste cargo',
-		description: 'Consolide les expeditions en un seul flux',
-		badge: 'Logistique',
-	},
+	
 ];
 
+const readFileAsDataUrl = (file) =>
+	new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result);
+		reader.onerror = () => reject(new Error('Impossible de lire le document.'));
+		reader.readAsDataURL(file);
+	});
+
+const buildDocumentId = (backendResult) => {
+	if (backendResult?.numero_declaration) {
+		return backendResult.numero_declaration;
+	}
+	if (backendResult?.id) {
+		const year = new Date().getFullYear();
+		const serial = String(backendResult.id).padStart(4, '0');
+		return `INV-${year}-${serial}`;
+	}
+	return DEFAULT_DOCUMENT_ID;
+};
+
 function ImportPage() {
+	const navigate = useNavigate();
 	const [selectedFile, setSelectedFile] = useState(null);
 	const [selectedType, setSelectedType] = useState(fileTypeOptions[0].id);
 	const [uploadStatus, setUploadStatus] = useState('idle');
 	const [uploadProgress, setUploadProgress] = useState(0);
-	const uploadIntervalRef = useRef(null);
-
-	useEffect(() => {
-		return () => {
-			if (uploadIntervalRef.current) {
-				clearInterval(uploadIntervalRef.current);
-			}
-		};
-	}, []);
+	const [errorMessage, setErrorMessage] = useState('');
 
 	const handleFileDrop = (file) => {
 		setSelectedFile(file);
 		setUploadStatus('ready');
 		setUploadProgress(0);
-		if (uploadIntervalRef.current) {
-			clearInterval(uploadIntervalRef.current);
-			uploadIntervalRef.current = null;
-		}
+		setErrorMessage('');
 	};
 
 	const handleRemoveFile = () => {
 		setSelectedFile(null);
 		setUploadStatus('idle');
 		setUploadProgress(0);
-		if (uploadIntervalRef.current) {
-			clearInterval(uploadIntervalRef.current);
-			uploadIntervalRef.current = null;
-		}
+		setErrorMessage('');
 	};
 
-	const startUpload = () => {
+	const startUpload = async () => {
 		if (!selectedFile) {
 			return;
 		}
+
 		setUploadStatus('uploading');
 		setUploadProgress(0);
-		if (uploadIntervalRef.current) {
-			clearInterval(uploadIntervalRef.current);
-		}
-		uploadIntervalRef.current = window.setInterval(() => {
-			setUploadProgress((prev) => {
-				if (prev >= 100) {
-					clearInterval(uploadIntervalRef.current);
-					uploadIntervalRef.current = null;
-					setUploadStatus('completed');
-					return 100;
-				}
-				return prev + 15;
+		setErrorMessage('');
+
+		try {
+			const dataUrl = await readFileAsDataUrl(selectedFile);
+			const source = {
+				name: selectedFile.name,
+				type: selectedFile.type,
+				size: selectedFile.size,
+				lastModified: selectedFile.lastModified,
+				dataUrl,
+			};
+			localStorage.setItem('ocr_uploaded_document', JSON.stringify(source));
+
+			const result = await extractOcrDocument(selectedFile, {
+				onUploadProgress: (event) => {
+					if (event.total) {
+						const percent = Math.round((event.loaded / event.total) * 100);
+						setUploadProgress(Math.max(5, Math.min(percent, 95)));
+					}
+				},
 			});
-		}, 350);
+
+			const documentId = buildDocumentId(result);
+			const fields = mapBackendResultToFields(result);
+
+			localStorage.setItem(
+				'ocr_latest_result',
+				JSON.stringify({
+					documentId,
+					backendId: result?.id ?? null,
+					fields,
+					rawResult: result,
+					source,
+					selectedType,
+					savedAt: new Date().toISOString(),
+				})
+			);
+
+			setUploadProgress(100);
+			setUploadStatus('completed');
+
+			window.setTimeout(() => {
+				navigate('/ocr-result');
+			}, 300);
+		} catch (error) {
+			setUploadStatus('error');
+			setUploadProgress(0);
+			const detail = error?.response?.data?.detail;
+			const message =
+				typeof detail === 'string'
+					? detail
+					: detail?.message || detail?.error || "L'envoi vers OCR a echoue.";
+			setErrorMessage(message);
+		}
 	};
 
 	const isUploading = uploadStatus === 'uploading';
@@ -96,8 +141,8 @@ function ImportPage() {
 	const statusDetailMap = {
 		idle: 'Ajoutez un fichier pour demarrer le flux OCR.',
 		ready: 'Verifiez les informations puis lancez l\'envoi.',
-		uploading: 'Le document est envoye et analyse en temps reel.',
-		completed: 'Extraction terminee, vous pouvez passer au controle.',
+		uploading: 'Le document est envoye puis extrait par le backend OCR.',
+		completed: 'Extraction terminee. Redirection vers les resultats OCR.',
 		error: 'Une erreur est survenue pendant l\'envoi.',
 	};
 
@@ -106,7 +151,12 @@ function ImportPage() {
 		{ label: 'Ajout du fichier source', state: selectedFile ? 'done' : 'pending' },
 		{
 			label: 'Transmission vers OCR',
-			state: uploadStatus === 'uploading' ? 'active' : uploadStatus === 'completed' ? 'done' : 'pending',
+			state:
+				uploadStatus === 'uploading'
+					? 'active'
+					: uploadStatus === 'completed'
+						? 'done'
+						: 'pending',
 		},
 		{ label: 'Extraction et verification', state: uploadStatus === 'completed' ? 'done' : 'pending' },
 	];
@@ -161,11 +211,18 @@ function ImportPage() {
 						type="button"
 						className="auth-button import-submit"
 						onClick={startUpload}
-						disabled={!selectedFile || isUploading || uploadStatus === 'completed'}
+						disabled={!selectedFile || isUploading}
 					>
 						<Upload size={18} />
 						{isUploading ? 'Envoi en cours...' : 'Envoyer vers OCR'}
 					</button>
+
+					{errorMessage && (
+						<p className="profile-message is-error" style={{ marginTop: '0.8rem' }}>
+							<AlertTriangle size={16} style={{ marginRight: '0.4rem', verticalAlign: 'text-bottom' }} />
+							{errorMessage}
+						</p>
+					)}
 
 					<p className="import-note">
 						Connecte en tant qu&apos;utilisateur authentifie.{' '}

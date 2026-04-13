@@ -15,6 +15,8 @@ import DashboardPage from './pages/DashboardPage';
 import HistoryPage from './pages/HistoryPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import OcrResultPage from './pages/OcrResultPage';
+import ValidationPage from './pages/ValidationPage';
 
 const router = createBrowserRouter([
   {
@@ -38,6 +40,22 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ImportPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'ocr-result',
+        element: (
+          <ProtectedRoute>
+            <OcrResultPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'validation',
+        element: (
+          <ProtectedRoute>
+            <ValidationPage />
           </ProtectedRoute>
         ),
       },

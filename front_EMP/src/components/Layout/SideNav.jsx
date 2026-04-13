@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
 	FileUp,
+	FileText,
 	History,
 	Home,
 	LayoutDashboard,
@@ -17,6 +18,7 @@ import { useAuth } from '../../hooks/useAuth';
 const appLinks = [
 	{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 	{ to: '/import', label: 'Import', icon: FileUp },
+	{ to: '/ocr-result', label: 'Resultats OCR', icon: FileText },
 	{ to: '/history', label: 'Historique', icon: History, adminOnly: true },
 	{ to: '/admin/users', label: 'Utilisateurs', icon: ShieldCheck, adminOnly: true },
 ];

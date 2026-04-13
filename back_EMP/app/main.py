@@ -9,7 +9,10 @@ from dotenv import load_dotenv
 from .config import settings
 from .database import init_db
 from .routers import auth
+# Importer les modèles AVANT init_db pour que SQLAlchemy les connaisse
+from app.models.document import Document, Taxe, Article
 
+from app.routers.ocr import router as ocr_router
 # Charger les variables d'environnement
 load_dotenv()
 
@@ -31,6 +34,7 @@ app.add_middleware(
 
 # Inclure les routers
 app.include_router(auth.router)
+app.include_router(ocr_router)
 
 # Event startup : initialiser la base de données
 @app.on_event("startup")

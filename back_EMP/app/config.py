@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # CORS
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
     
+    # APP DEBUG & ENV
+    DEBUG: bool = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
+    ENV: str = os.getenv("ENV", "development")
+    
     class Config:
         env_file = ".env"
 
