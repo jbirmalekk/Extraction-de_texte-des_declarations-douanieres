@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -84,19 +84,39 @@ class OCRResultSchema(BaseModel):
 
 # ── Ce que l'utilisateur envoie pour valider/corriger ────────
 class OCRValidationSchema(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     document_id              : int
     numero_declaration       : Optional[str] = None
     date_declaration         : Optional[str] = None
     type_declaration         : Optional[str] = None
+    nbre_articles            : Optional[str] = None
     exportateur_nom          : Optional[str] = None
+    exportateur_code         : Optional[str] = None
     importateur_nom          : Optional[str] = None
     importateur_pays         : Optional[str] = None
+    declarant_code           : Optional[str] = None
+    declarant_nom            : Optional[str] = None
     mode_transport           : Optional[str] = None
+    date_arrivee_depart      : Optional[str] = None
+    pays_provenance          : Optional[str] = None
+    pays_destination         : Optional[str] = None
+    adresse_entreposage      : Optional[str] = None
+    mode_livraison           : Optional[str] = None
     devise                   : Optional[str] = None
     montant_ptfn             : Optional[str] = None
     valeur_fob_dt            : Optional[str] = None
+    taux_conversion          : Optional[str] = None
+    designation_marchandises : Optional[str] = None
+    poids_brut               : Optional[str] = None
+    poids_net                : Optional[str] = None
     bureau_douane            : Optional[str] = None
+    code_gdt                 : Optional[str] = None
     montant_liquidation      : Optional[str] = None
+    itineraire               : Optional[str] = None
+    num_agrement             : Optional[str] = None
+    num_repertoire           : Optional[str] = None
+    cle_authentification     : Optional[str] = None
     statut                   : Optional[str] = "valide"
 
 

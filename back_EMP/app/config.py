@@ -34,6 +34,16 @@ class Settings(BaseSettings):
     # OCR
     TESSERACT_PATH: str = os.getenv("TESSERACT_PATH", "")
     POPPLER_PATH: str = os.getenv("POPPLER_PATH", "")
+
+    # Nextcloud GED (WebDAV)
+    NEXTCLOUD_ENABLED: bool = os.getenv("NEXTCLOUD_ENABLED", "false").lower() in ("true", "1", "yes")
+    NEXTCLOUD_BASE_URL: str = os.getenv("NEXTCLOUD_BASE_URL", "")
+    NEXTCLOUD_USERNAME: str = os.getenv("NEXTCLOUD_USERNAME", "")
+    NEXTCLOUD_PASSWORD: str = os.getenv("NEXTCLOUD_PASSWORD", "")
+    NEXTCLOUD_UPLOAD_ROOT: str = os.getenv("NEXTCLOUD_UPLOAD_ROOT", "EMP-SmartOCR")
+    NEXTCLOUD_TIMEOUT_SECONDS: int = int(os.getenv("NEXTCLOUD_TIMEOUT_SECONDS", "20"))
+    NEXTCLOUD_VERIFY_SSL: bool = os.getenv("NEXTCLOUD_VERIFY_SSL", "true").lower() in ("true", "1", "yes")
+    NEXTCLOUD_REQUIRED: bool = os.getenv("NEXTCLOUD_REQUIRED", "false").lower() in ("true", "1", "yes")
     
     # CORS
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")

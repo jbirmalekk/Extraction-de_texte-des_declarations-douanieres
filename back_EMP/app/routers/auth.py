@@ -76,7 +76,7 @@ def create_user(db: Session, user_in: UserCreate, is_approved: bool = False, is_
         email=user_in.email,
         hashed_password=hashed_password,
         role="user",
-        is_active=True,
+        is_active=is_approved,
         is_approved=is_approved,
         is_email_verified=is_email_verified
     )
@@ -239,13 +239,6 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Vérifier que l'utilisateur est actif
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user"
-        )
-    
     # Vérifier que l'email est vérifié
     if not user.is_email_verified:
         raise HTTPException(
@@ -258,6 +251,13 @@ def login(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Account not approved yet. Please wait for admin approval."
+        )
+
+    # Vérifier que l'utilisateur est actif
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user"
         )
     
     # Créer le token JWT
@@ -545,15 +545,14 @@ def get_pending_users(
     db: Session = Depends(get_db)
 ):
     """
-    Récupère les utilisateurs en attente d'approbation (email vérifié, pas approuvé).
+    Récupère les utilisateurs en attente d'approbation (pas approuvés).
     
     Accessible uniquement par les administrateurs.
     """
     ensure_admin(current_user)
     pending_users = db.query(User).filter(
-        User.is_email_verified == True,
         User.is_approved == False
-    ).all()
+    ).order_by(User.id).all()
     return pending_users
 
 
@@ -578,6 +577,11 @@ def approve_user(
         )
     
     if user.is_approved:
+        if not user.is_active:
+            user.is_active = True
+            db.add(user)
+            db.commit()
+
         return ApprovalResponse(
             user_id=user.id,
             is_approved=True,
@@ -585,6 +589,7 @@ def approve_user(
         )
     
     user.is_approved = True
+    user.is_active = True
     db.add(user)
     db.commit()
     
@@ -650,6 +655,13 @@ def forgot_password(payload: PasswordResetRequest, db: Session = Depends(get_db)
     # Réponse générique pour ne pas divulguer l'existence d'un compte
     if not user:
         return {"message": "If the email exists, a reset link has been sent."}
+
+    # Bloquer la réinitialisation tant que le compte est en attente d'approbation admin.
+    if not user.is_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Votre compte n'est pas encore approuvé par l'administrateur. Vous ne pouvez pas réinitialiser votre mot de passe pour le moment."
+        )
 
     reset_token = security.create_reset_token(user.username)
     try:

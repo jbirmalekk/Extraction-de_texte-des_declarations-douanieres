@@ -3,13 +3,12 @@ import {
 	AlertTriangle,
 	FileText,
 	Info,
-	Plus,
 	Trash2,
 	ZoomIn,
 	ZoomOut,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { DEFAULT_DOCUMENT_ID, DEFAULT_EXTRACTED_FIELDS } from '../utils/ocrFields';
+import { DEFAULT_DOCUMENT_ID } from '../utils/ocrFields';
 import './OcrResultPage.css';
 
 const OVERLAY_ZONES = [
@@ -34,7 +33,7 @@ const safeJsonParse = (value, fallback) => {
 
 const toSafeFieldList = (fields) => {
 	if (!Array.isArray(fields) || fields.length === 0) {
-		return DEFAULT_EXTRACTED_FIELDS;
+		return [];
 	}
 	return fields.map((field) => ({
 		...field,
@@ -62,7 +61,7 @@ function OcrResultPage() {
 	const [documentId, setDocumentId] = useState(DEFAULT_DOCUMENT_ID);
 	const [backendId, setBackendId] = useState(null);
 	const [documentPreview, setDocumentPreview] = useState(null);
-	const [fields, setFields] = useState(DEFAULT_EXTRACTED_FIELDS);
+	const [fields, setFields] = useState([]);
 	const [modifiedFields, setModifiedFields] = useState({});
 	const [focusManualId, setFocusManualId] = useState(null);
 
@@ -84,14 +83,15 @@ function OcrResultPage() {
 			}
 			setFields(toSafeFieldList(savedResult.fields));
 		} else {
-			setFields(DEFAULT_EXTRACTED_FIELDS);
+			setFields([]);
 			if (savedPreview) {
 				setDocumentPreview(savedPreview);
 			}
 		}
 	}, []);
 
-	const isPdf = documentPreview?.type?.toLowerCase().includes('pdf');
+	const hasPreview = Boolean(documentPreview?.dataUrl);
+	const isPdf = hasPreview && documentPreview?.type?.toLowerCase().includes('pdf');
 
 	const handleZoomIn = () => {
 		setZoom((prev) => Math.min(prev + 25, 200));
@@ -130,24 +130,6 @@ function OcrResultPage() {
 		}));
 	};
 
-	const addMissingField = () => {
-		const id = `manual-${Date.now()}`;
-		setFocusManualId(id);
-		setFields((prev) => [
-			...prev,
-			{
-				id,
-				key: '',
-				label: '',
-				section: 'Champs ajoutes manuellement',
-				value: '',
-				confidence: null,
-				hasError: false,
-				isManual: true,
-			},
-		]);
-	};
-
 	const removeManualField = (id) => {
 		setFields((prev) => prev.filter((field) => field.id !== id));
 		setModifiedFields((prev) => {
@@ -159,7 +141,8 @@ function OcrResultPage() {
 
 	const hasUnresolvedErrors = fields.some((field) => field.hasError && !modifiedFields[field.id]);
 	const hasModifications = Object.keys(modifiedFields).length > 0;
-	const disableValidation = !hasModifications && hasUnresolvedErrors;
+	const hasNoFields = fields.length === 0;
+	const disableValidation = hasNoFields || (!hasModifications && hasUnresolvedErrors);
 	const groupedFields = groupFieldsBySection(fields).filter(
 		([sectionName]) => !HIDDEN_SECTIONS.has(sectionName)
 	);
@@ -177,16 +160,28 @@ function OcrResultPage() {
 		navigate('/validation');
 	};
 
+	const resetOcrResult = () => {
+		localStorage.removeItem('ocr_validation_payload');
+		localStorage.removeItem('ocr_latest_result');
+		localStorage.removeItem('ocr_uploaded_document');
+		setDocumentId(DEFAULT_DOCUMENT_ID);
+		setBackendId(null);
+		setDocumentPreview(null);
+		setFields([]);
+		setModifiedFields({});
+		setFocusManualId(null);
+		setZoom(100);
+	};
+
 	const handleCancel = () => {
 		if (hasPendingChanges) {
-			const confirmed = window.confirm('Voulez-vous annuler les modifications et revenir a la page Import ?');
+			const confirmed = window.confirm('Voulez-vous annuler les modifications et vider les donnees affichees ?');
 			if (!confirmed) {
 				return;
 			}
 		}
 
-		localStorage.removeItem('ocr_validation_payload');
-		navigate('/import');
+		resetOcrResult();
 	};
 
 	return (
@@ -227,11 +222,11 @@ function OcrResultPage() {
 							) : (
 								<div className="ocr-preview-placeholder">
 									<FileText size={26} />
-									<p>Document Douanier - Exemple</p>
+									<p>Aucun document charge</p>
 								</div>
 							)}
 
-							{!isPdf && (
+							{hasPreview && !isPdf && (
 								<div className="ocr-zone-overlay" aria-hidden="true">
 									{OVERLAY_ZONES.map((zone) => (
 										<div
@@ -275,17 +270,15 @@ function OcrResultPage() {
 					<div className="ocr-info-banner">
 						<Info size={16} />
 						<p>
-							Le modele OCR peut parfois omettre certains champs. Si des donnees sont
-							manquantes, utilisez le bouton &quot;Ajouter un champ&quot; ci-dessous.
+							Le modele OCR peut parfois omettre certains champs. Corrigez les valeurs directement
+							dans la liste ci-dessous.
 						</p>
 					</div>
 
-					<button type="button" className="ocr-add-field-btn" onClick={addMissingField}>
-						<Plus size={16} /> Ajouter un champ manquant
-					</button>
-
 					<div className="ocr-field-list">
-						{groupedFields.map(([sectionName, sectionFields]) => (
+						{groupedFields.length === 0 ? (
+							<p>Aucune donnee a afficher.</p>
+						) : groupedFields.map(([sectionName, sectionFields]) => (
 							<div key={sectionName} className="ocr-section-block">
 								<p className="ocr-section-title">{sectionName}</p>
 								{sectionFields.map((field) => {

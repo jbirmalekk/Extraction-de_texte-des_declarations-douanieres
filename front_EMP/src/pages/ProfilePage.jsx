@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { KeyRound, Save, UserRound } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { changeMyPassword, updateMyProfile } from '../services/userService';
+import { validatePasswordPolicy } from '../utils/passwordPolicy';
 
 function ProfilePage() {
 	const { user, refreshUser } = useAuth();
@@ -45,8 +46,9 @@ function ProfilePage() {
 		setPasswordMessage('');
 		setPasswordStatus('neutral');
 
-		if (newPassword.length < 8) {
-			setPasswordMessage('Le nouveau mot de passe doit contenir au moins 8 caracteres.');
+		const passwordValidation = validatePasswordPolicy(newPassword, 'fr');
+		if (!passwordValidation.isValid) {
+			setPasswordMessage(passwordValidation.message);
 			setPasswordStatus('error');
 			return;
 		}

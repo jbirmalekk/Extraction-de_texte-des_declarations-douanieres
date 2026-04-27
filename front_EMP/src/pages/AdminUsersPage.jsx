@@ -149,9 +149,21 @@ function AdminUsersPage() {
 			await approveUser(userId);
 			setPendingUsers((prev) => prev.filter((user) => user.id !== userId));
 			const approvedUser = pendingUsers.find((u) => u.id === userId);
-			if (approvedUser) {
-				setUsers((prev) => [...prev, { ...approvedUser, is_approved: true }]);
-			}
+			setUsers((prev) => {
+				const exists = prev.some((user) => user.id === userId);
+
+				if (exists) {
+					return prev.map((user) =>
+						user.id === userId ? { ...user, is_approved: true, is_active: true } : user,
+					);
+				}
+
+				if (approvedUser) {
+					return [...prev, { ...approvedUser, is_approved: true, is_active: true }];
+				}
+
+				return prev;
+			});
 			setSuccessMessage('Utilisateur approuve avec succes.');
 		} catch (err) {
 			setError(err?.response?.data?.detail || 'Approbation impossible.');
@@ -172,6 +184,10 @@ function AdminUsersPage() {
 		try {
 			await rejectUser(userId);
 			setPendingUsers((prev) => prev.filter((user) => user.id !== userId));
+			setUsers((prev) => prev.filter((user) => user.id !== userId));
+			if (viewUser?.id === userId) {
+				setViewUser(null);
+			}
 			setSuccessMessage('Utilisateur rejete et supprime.');
 		} catch (err) {
 			setError(err?.response?.data?.detail || 'Rejet impossible.');
@@ -276,6 +292,7 @@ function AdminUsersPage() {
 						</div>
 						{sortedUsers.map((user) => {
 							const isSelf = currentUser?.id === user.id;
+							const isEffectivelyActive = Boolean(user.is_active && user.is_approved);
 
 							return (
 								<div key={user.id} className="admin-users-row">
@@ -292,9 +309,9 @@ function AdminUsersPage() {
 									</span>
 									<span>
 										<span
-											className={`admin-status-pill ${user.is_active ? 'is-active' : 'is-inactive'}`}
+											className={`admin-status-pill ${isEffectivelyActive ? 'is-active' : 'is-inactive'}`}
 										>
-											{user.is_active ? 'Actif' : 'Inactif'}
+											{isEffectivelyActive ? 'Actif' : 'Inactif'}
 										</span>
 									</span>
 									<span>
@@ -365,7 +382,7 @@ function AdminUsersPage() {
 							</div>
 							<div>
 								<p className="admin-view-label">Statut</p>
-								<p>{viewUser.is_active ? 'Actif' : 'Inactif'}</p>
+								<p>{viewUser.is_active && viewUser.is_approved ? 'Actif' : 'Inactif'}</p>
 							</div>
 							<div>
 								<p className="admin-view-label">Email verifie</p>

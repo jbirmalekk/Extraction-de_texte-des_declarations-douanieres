@@ -3,6 +3,7 @@ Security - Fonctions pour JWT et hashing de mots de passe
 """
 from datetime import datetime, timedelta
 from typing import Optional
+import re
 import uuid
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -14,6 +15,37 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Stockage en mémoire des tokens révoqués (jti)
 # En production, utiliser Redis ou une table BD
 _revoked_tokens: set[str] = set()
+
+PASSWORD_POLICY_MESSAGE = (
+    "Password must contain at least 8 characters, including at least one uppercase letter, "
+    "one lowercase letter, one digit, and one special character."
+)
+
+
+def validate_password_policy(password: str) -> str:
+    """Valide la robustesse du mot de passe selon les normes minimales."""
+    if len(password) < 8:
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+
+    if len(password) > 100:
+        raise ValueError("Password must not exceed 100 characters.")
+
+    if re.search(r"\s", password):
+        raise ValueError("Password must not contain spaces.")
+
+    if not re.search(r"[a-z]", password):
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+
+    if not re.search(r"[A-Z]", password):
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+
+    if not re.search(r"\d", password):
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+
+    if not re.search(r"[^A-Za-z0-9]", password):
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+
+    return password
 
 
 def get_password_hash(password: str) -> str:

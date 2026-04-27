@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import empLogo from '../../assets/emp.png';
 import { confirmPasswordReset } from '../../services/authService';
+import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 
 function ResetPasswordPage() {
 	const [searchParams] = useSearchParams();
@@ -27,8 +28,10 @@ function ResetPasswordPage() {
 			setError('Passwords do not match');
 			return;
 		}
-		if (password.length < 8) {
-			setError('Password must be at least 8 characters');
+
+		const passwordValidation = validatePasswordPolicy(password, 'en');
+		if (!passwordValidation.isValid) {
+			setError(passwordValidation.message);
 			return;
 		}
 

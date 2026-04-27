@@ -219,24 +219,6 @@
 	line-height: 1.45;
 }
 
-.ocr-add-field-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 0.45rem;
-	border-radius: 12px;
-	border: 1px solid rgba(37, 99, 235, 0.35);
-	background: #fff;
-	color: #1d4ed8;
-	padding: 0.65rem 0.9rem;
-	font-weight: 700;
-	cursor: pointer;
-}
-
-.ocr-add-field-btn:hover {
-	background: #eff6ff;
-}
-
 .ocr-field-list {
 	display: flex;
 	flex-direction: column;
@@ -272,7 +254,7 @@
 	padding: 0.75rem;
 	border-radius: 12px;
 	border: 1px solid rgba(148, 163, 184, 0.35);
-	background: #fff;
+	background: linear-gradient(180deg, #ffffff, #fbfdff);
 	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -360,12 +342,13 @@
 .ocr-manual-label,
 .ocr-field-input {
 	width: 100%;
-	border-radius: 10px;
-	border: 1px solid rgba(148, 163, 184, 0.4);
-	padding: 0.6rem 0.75rem;
+	border-radius: 12px;
+	border: 1px solid rgba(148, 163, 184, 0.42);
+	padding: 0.68rem 0.8rem;
 	font-size: 0.92rem;
 	color: #0f172a;
-	background: #fff;
+	background: linear-gradient(180deg, #ffffff, #f8fbff);
+	transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
 .ocr-manual-label:focus,
@@ -373,6 +356,7 @@
 	outline: none;
 	border-color: rgba(37, 99, 235, 0.7);
 	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+	transform: translateY(-1px);
 }
 
 .ocr-action-row {
@@ -419,6 +403,11 @@
 @media (max-width: 1200px) {
 	.ocr-result-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.ocr-add-field-row {
+		flex-direction: column;
+		align-items: stretch;
 	}
 
 	.ocr-panel {

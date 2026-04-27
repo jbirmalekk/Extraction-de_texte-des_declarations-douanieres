@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { signup } from '../../services/authService';
+import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 
 function RegisterForm({ onSuccess }) {
 	const { login } = useAuth();
@@ -31,9 +32,11 @@ function RegisterForm({ onSuccess }) {
 			showToast('error', 'Passwords do not match');
 			return false;
 		}
-		if (password.length < 8) {
-			setPasswordError('Password must be at least 8 characters');
-			showToast('error', 'Password must be at least 8 characters');
+
+		const passwordValidation = validatePasswordPolicy(password, 'en');
+		if (!passwordValidation.isValid) {
+			setPasswordError(passwordValidation.message);
+			showToast('error', passwordValidation.message);
 			return false;
 		}
 		setPasswordError('');

@@ -17,6 +17,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import OcrResultPage from './pages/OcrResultPage';
 import ValidationPage from './pages/ValidationPage';
+import ErpSuccessPage from './pages/ErpSuccessPage';
 
 const router = createBrowserRouter([
   {
@@ -56,6 +57,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ValidationPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'erp-success',
+        element: (
+          <ProtectedRoute>
+            <ErpSuccessPage />
           </ProtectedRoute>
         ),
       },

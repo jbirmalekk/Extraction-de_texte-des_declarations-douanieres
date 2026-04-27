@@ -2,9 +2,10 @@
 User Schemas - Schémas Pydantic pour validation et sérialisation
 """
 from enum import Enum
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime
+from ..utils.security import validate_password_policy
 
 
 class UserRole(str, Enum):
@@ -24,6 +25,11 @@ class UserCreate(UserBase):
     """Schéma pour la création d'un utilisateur (sign-up)"""
     # Aligné avec le front : minimum 8 caractères
     password: str = Field(..., min_length=8, max_length=100)
+
+    @field_validator("password")
+    @classmethod
+    def validate_user_password(cls, value: str) -> str:
+        return validate_password_policy(value)
 
 
 class UserUpdate(BaseModel):
@@ -58,6 +64,11 @@ class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8, max_length=100)
 
+    @field_validator("new_password")
+    @classmethod
+    def validate_reset_password(cls, value: str) -> str:
+        return validate_password_policy(value)
+
 
 class ProfileUpdate(BaseModel):
     """Mise a jour du profil utilisateur courant (sans role)."""
@@ -69,6 +80,11 @@ class PasswordChange(BaseModel):
     """Changement de mot de passe pour l'utilisateur connecte."""
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=100)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        return validate_password_policy(value)
 
 
 class UserOut(UserBase):
