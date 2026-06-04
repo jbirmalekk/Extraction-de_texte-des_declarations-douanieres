@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
 import { signup } from '../../services/authService';
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 
 function RegisterForm({ onSuccess }) {
-	const { login } = useAuth();
 	const [fullName, setFullName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
@@ -24,16 +22,16 @@ function RegisterForm({ onSuccess }) {
 
 	const validatePasswords = () => {
 		if (!fullName || !email || !password || !confirmPassword) {
-			showToast('error', 'All fields are required');
+			showToast('error', 'Tous les champs sont obligatoires.');
 			return false;
 		}
 		if (password !== confirmPassword) {
-			setPasswordError('Passwords do not match');
-			showToast('error', 'Passwords do not match');
+			setPasswordError('Les mots de passe ne correspondent pas.');
+			showToast('error', 'Les mots de passe ne correspondent pas.');
 			return false;
 		}
 
-		const passwordValidation = validatePasswordPolicy(password, 'en');
+		const passwordValidation = validatePasswordPolicy(password, 'fr');
 		if (!passwordValidation.isValid) {
 			setPasswordError(passwordValidation.message);
 			showToast('error', passwordValidation.message);
@@ -57,18 +55,18 @@ function RegisterForm({ onSuccess }) {
 			const normalizedFullName = fullName.trim();
 			const normalizedEmail = email.trim().toLowerCase();
 
-			await signup({
+			const createdUser = await signup({
 				fullName: normalizedFullName,
 				email: normalizedEmail,
 				password,
 			});
-
-			await login({ email: normalizedEmail, password });
-
-			showToast('success', 'Account created successfully!');
-			onSuccess?.();
+			showToast(
+				'success',
+				'Compte créé. Vérifiez votre e-mail et attendez l\'approbation admin avant de vous connecter.',
+			);
+			onSuccess?.(createdUser);
 		} catch (err) {
-			const message = err?.response?.data?.detail || 'Unable to create account';
+			const message = err?.response?.data?.detail || 'Impossible de créer le compte.';
 			setError(message);
 			showToast('error', message);
 		} finally {
@@ -82,12 +80,12 @@ function RegisterForm({ onSuccess }) {
 			<form onSubmit={handleSubmit} className="auth-form">
 			<div className="form-row">
 				<div className="form-group">
-					<label htmlFor="fullName">Full name</label>
+					<label htmlFor="fullName">Nom complet</label>
 					<input
 						id="fullName"
 						type="text"
 						className="form-input"
-						placeholder="Your full name"
+						placeholder="Votre nom complet"
 						value={fullName}
 						onChange={(e) => setFullName(e.target.value)}
 						required
@@ -95,7 +93,7 @@ function RegisterForm({ onSuccess }) {
 				</div>
 
 				<div className="form-group">
-					<label htmlFor="email">Email</label>
+					<label htmlFor="email">E-mail</label>
 					<div className="input-with-icon">
 						<span className="input-icon">
 							<Mail size={18} />
@@ -104,7 +102,7 @@ function RegisterForm({ onSuccess }) {
 							id="email"
 							type="email"
 							className="form-input password-input"
-							placeholder="your@email.com"
+							placeholder="votre@email.com"
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
 							required
@@ -115,7 +113,7 @@ function RegisterForm({ onSuccess }) {
 
 			<div className="form-row">
 				<div className="form-group">
-					<label htmlFor="password">Password</label>
+					<label htmlFor="password">Mot de passe</label>
 					<div className="input-with-icon">
 						<span className="input-icon">
 							<Lock size={18} />
@@ -124,7 +122,7 @@ function RegisterForm({ onSuccess }) {
 							id="password"
 							type={showPassword ? 'text' : 'password'}
 							className="form-input password-input"
-							placeholder="Create a password"
+							placeholder="Créez un mot de passe"
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
 							required
@@ -133,7 +131,7 @@ function RegisterForm({ onSuccess }) {
 							type="button"
 							className="toggle-visibility"
 							onClick={() => setShowPassword((prev) => !prev)}
-							aria-label={showPassword ? 'Hide password' : 'Show password'}
+							aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
 						>
 							{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
 						</button>
@@ -141,7 +139,7 @@ function RegisterForm({ onSuccess }) {
 				</div>
 
 				<div className="form-group">
-					<label htmlFor="confirmPassword">Confirm password</label>
+					<label htmlFor="confirmPassword">Valider le mot de passe</label>
 					<div className="input-with-icon">
 						<span className="input-icon">
 							<ShieldCheck size={18} />
@@ -150,7 +148,7 @@ function RegisterForm({ onSuccess }) {
 							id="confirmPassword"
 							type={showConfirmPassword ? 'text' : 'password'}
 							className="form-input password-input"
-							placeholder="Confirm your password"
+							placeholder="Confirmez votre mot de passe"
 							value={confirmPassword}
 							onChange={(e) => setConfirmPassword(e.target.value)}
 							required
@@ -159,7 +157,7 @@ function RegisterForm({ onSuccess }) {
 							type="button"
 							className="toggle-visibility"
 							onClick={() => setShowConfirmPassword((prev) => !prev)}
-							aria-label={showConfirmPassword ? 'Hide confirmation' : 'Show confirmation'}
+							aria-label={showConfirmPassword ? 'Masquer la confirmation' : 'Afficher la confirmation'}
 						>
 							{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
 						</button>
@@ -171,7 +169,7 @@ function RegisterForm({ onSuccess }) {
 			{error && <div className="error-message">{error}</div>}
 
 			<button type="submit" className="auth-button" disabled={loading}>
-				{loading ? 'Creating account...' : 'Sign up'}
+				{loading ? 'Création du compte…' : 'S\'inscrire'}
 			</button>
 		</form>
 		</>

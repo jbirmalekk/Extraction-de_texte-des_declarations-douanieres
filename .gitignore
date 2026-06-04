@@ -1,0 +1,27 @@
+# Global ignores for workspace hygiene
+
+# Python bytecode and cache folders
+**/__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local environment and secrets
+**/.env
+**/.env.*
+
+# OCR/generated output artifacts
+ocr_results.json
+compare_before_after.json
+*.tmp.json
+
+# OS/editor/cache noise
+.DS_Store
+Thumbs.db
+Microsoft/Windows/PowerShell/ModuleAnalysisCache
+.venv/ 
+venv312/ 
+__pycache__/ 

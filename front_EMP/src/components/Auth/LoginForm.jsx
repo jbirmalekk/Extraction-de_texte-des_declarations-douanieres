@@ -20,10 +20,10 @@ function LoginForm({ onSuccess }) {
 		setLoading(true);
 		setError('');
 		try {
-			await login({ email, password });
-			onSuccess?.();
+			const authData = await login({ email, password });
+			onSuccess?.(authData);
 		} catch (err) {
-			const message = err?.response?.data?.detail || 'Invalid email or password';
+			const message = err?.response?.data?.detail || 'E-mail ou mot de passe incorrect.';
 			setError(message);
 		} finally {
 			setLoading(false);
@@ -38,13 +38,13 @@ function LoginForm({ onSuccess }) {
 		try {
 			const data = await healthCheck();
 			if (data?.status === 'healthy') {
-				setDbStatus('✅ Connected to database successfully');
+				setDbStatus('Connexion à la base de données réussie.');
 				setTimeout(() => setDbStatus(''), 5000);
 			} else {
-				setDbError('⚠️ Database connection failed');
+				setDbError('Échec de la connexion à la base de données.');
 			}
 		} catch (err) {
-			setDbError('❌ Connection failed. Please verify backend is running.');
+			setDbError('Connexion impossible. Vérifiez que le backend est démarré.');
 		} finally {
 			setDbChecking(false);
 		}
@@ -53,8 +53,8 @@ function LoginForm({ onSuccess }) {
 	return (
 		<>
 			<form onSubmit={handleSubmit} className="auth-form">
-				<div className="form-group" >
-					<label htmlFor="email">Email</label>
+				<div className="form-group">
+					<label htmlFor="email">E-mail</label>
 					<div className="input-with-icon">
 						<span className="input-icon">
 							<Mail size={18} />
@@ -63,7 +63,7 @@ function LoginForm({ onSuccess }) {
 							id="email"
 							type="email"
 							className="form-input password-input"
-							placeholder="your@email.com"
+							placeholder="votre@email.com"
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
 							required
@@ -73,9 +73,9 @@ function LoginForm({ onSuccess }) {
 
 				<div className="form-group">
 					<div className="password-header">
-						<label htmlFor="password">Password</label>
+						<label htmlFor="password">Mot de passe</label>
 						<Link to="/forgot-password" className="forgot-link">
-							Forgot password?
+							Mot de passe oublié ?
 						</Link>
 					</div>
 					<div className="input-with-icon">
@@ -86,7 +86,7 @@ function LoginForm({ onSuccess }) {
 							id="password"
 							type={showPassword ? 'text' : 'password'}
 							className="form-input password-input"
-							placeholder="Enter your password"
+							placeholder="Saisissez votre mot de passe"
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
 							required
@@ -95,7 +95,7 @@ function LoginForm({ onSuccess }) {
 							type="button"
 							className="toggle-visibility"
 							onClick={() => setShowPassword((prev) => !prev)}
-							aria-label={showPassword ? 'Hide password' : 'Show password'}
+							aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
 						>
 							{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
 						</button>
@@ -105,7 +105,7 @@ function LoginForm({ onSuccess }) {
 				{error && <div className="error-message">{error}</div>}
 
 				<button type="submit" className="auth-button" disabled={loading}>
-					{loading ? 'Signing in...' : 'Sign in'}
+					{loading ? 'Connexion…' : 'Se connecter'}
 				</button>
 			</form>
 
@@ -117,7 +117,7 @@ function LoginForm({ onSuccess }) {
 					disabled={dbChecking}
 				>
 					<span className="db-icon">🔌</span>
-					{dbChecking ? 'Connecting...' : 'Connect to database'}
+					{dbChecking ? 'Connexion…' : 'Tester la connexion base de données'}
 				</button>
 
 				{dbStatus && <div className="db-status success">{dbStatus}</div>}
@@ -128,3 +128,4 @@ function LoginForm({ onSuccess }) {
 }
 
 export default LoginForm;
+

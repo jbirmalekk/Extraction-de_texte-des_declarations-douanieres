@@ -1,22 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
 	AlertTriangle,
 	FileText,
 	Info,
+	Maximize2,
+	ScanLine,
 	Trash2,
 	ZoomIn,
 	ZoomOut,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { isInvoiceExtractionPayload, looksLikeInvoiceFileName } from '../utils/extractionRouting';
 import { DEFAULT_DOCUMENT_ID } from '../utils/ocrFields';
+import {
+	hydrateDumContextFromApi,
+	saveDumValidationPayload,
+	syncDumLatestFromValidationPayload,
+} from '../utils/documentContextStorage';
+import { useDocumentFilePreview } from '../hooks/useDocumentFilePreview';
 import './OcrResultPage.css';
 
-const OVERLAY_ZONES = [
-	{ id: 'zone-1', label: 'N Declaration', top: '14%', left: '8%', width: '42%', height: '14%' },
-	{ id: 'zone-2', label: 'Date', top: '32%', left: '56%', width: '30%', height: '12%' },
-	{ id: 'zone-3', label: 'Montant', top: '52%', left: '14%', width: '34%', height: '16%' },
-	{ id: 'zone-4', label: 'Code HS', top: '72%', left: '48%', width: '36%', height: '14%' },
-];
 
 const HIDDEN_SECTIONS = new Set(['Metadonnees', 'Qualite OCR', 'Listes']);
 
@@ -57,41 +60,101 @@ const groupFieldsBySection = (fields) => {
 
 function OcrResultPage() {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const [zoom, setZoom] = useState(100);
+	const [viewMode, setViewMode] = useState('page');
+	const [docSize, setDocSize] = useState(null);
+	const [pageFitScale, setPageFitScale] = useState(1);
+	const viewportRef = useRef(null);
 	const [documentId, setDocumentId] = useState(DEFAULT_DOCUMENT_ID);
 	const [backendId, setBackendId] = useState(null);
 	const [documentPreview, setDocumentPreview] = useState(null);
+	const [docMeta, setDocMeta] = useState(null);
 	const [fields, setFields] = useState([]);
 	const [modifiedFields, setModifiedFields] = useState({});
 	const [focusManualId, setFocusManualId] = useState(null);
 
-	useEffect(() => {
-		const savedResult = safeJsonParse(localStorage.getItem('ocr_latest_result'), null);
-		const savedPreview = safeJsonParse(localStorage.getItem('ocr_uploaded_document'), null);
+	const applyDumPayload = (savedResult, savedPreview) => {
+		const isDumPayload =
+			savedResult &&
+			savedResult.selectedType !== 'invoice' &&
+			!isInvoiceExtractionPayload(savedResult);
 
-		if (savedResult) {
-			if (savedResult.documentId) {
-				setDocumentId(savedResult.documentId);
-			}
-			if (savedResult.backendId) {
-				setBackendId(savedResult.backendId);
-			}
-			if (savedResult.source) {
-				setDocumentPreview(savedResult.source);
-			} else if (savedPreview) {
-				setDocumentPreview(savedPreview);
-			}
+		if (isDumPayload) {
+			setDocumentId(savedResult.documentId || DEFAULT_DOCUMENT_ID);
+			setBackendId(savedResult.backendId ?? null);
+			setDocumentPreview(savedResult.source || savedPreview);
+			setDocMeta(savedResult.rawResult || null);
 			setFields(toSafeFieldList(savedResult.fields));
 		} else {
+			setDocumentId(DEFAULT_DOCUMENT_ID);
+			setBackendId(null);
+			setDocumentPreview(null);
+			setDocMeta(null);
 			setFields([]);
-			if (savedPreview) {
-				setDocumentPreview(savedPreview);
-			}
 		}
-	}, []);
+		setModifiedFields({});
+	};
 
-	const hasPreview = Boolean(documentPreview?.dataUrl);
-	const isPdf = hasPreview && documentPreview?.type?.toLowerCase().includes('pdf');
+	useEffect(() => {
+		let isActive = true;
+
+		const loadDumResults = async () => {
+			const queryId = Number(new URLSearchParams(location.search).get('documentId'));
+			const validationPayload = safeJsonParse(localStorage.getItem('ocr_validation_payload'), null);
+			const targetId = Number.isFinite(queryId) && queryId > 0
+				? queryId
+				: validationPayload?.backendId;
+
+			let savedResult = safeJsonParse(localStorage.getItem('ocr_latest_result'), null);
+			const savedPreview = safeJsonParse(localStorage.getItem('ocr_uploaded_document'), null);
+
+			if (targetId && Number(savedResult?.backendId) !== Number(targetId)) {
+				if (Number(validationPayload?.backendId) === Number(targetId)) {
+					await syncDumLatestFromValidationPayload();
+					savedResult = safeJsonParse(localStorage.getItem('ocr_latest_result'), null);
+				} else {
+					try {
+						await hydrateDumContextFromApi(targetId);
+						if (!isActive) {
+							return;
+						}
+						savedResult = safeJsonParse(localStorage.getItem('ocr_latest_result'), null);
+					} catch {
+						if (!isActive) {
+							return;
+						}
+					}
+				}
+			}
+
+			if (!isActive) {
+				return;
+			}
+			applyDumPayload(savedResult, savedPreview);
+		};
+
+		loadDumResults();
+
+		return () => {
+			isActive = false;
+		};
+	}, [location.pathname, location.search, location.key]);
+
+	const { preview: remotePreview, loading: previewLoading, error: previewError } =
+		useDocumentFilePreview({
+			kind: 'dum',
+			entityId: backendId,
+			payloadSource: documentPreview,
+			fileName: documentPreview?.name || docMeta?.fichier,
+			contentType: documentPreview?.type,
+			dossier: docMeta?.dossier,
+			sourceFileAvailable: docMeta?.has_source_file,
+		});
+
+	const displayPreview = documentPreview?.dataUrl ? documentPreview : remotePreview;
+	const hasPreview = Boolean(displayPreview?.dataUrl);
+	const isPdf = hasPreview && displayPreview?.type?.toLowerCase().includes('pdf');
 
 	const handleZoomIn = () => {
 		setZoom((prev) => Math.min(prev + 25, 200));
@@ -100,6 +163,76 @@ function OcrResultPage() {
 	const handleZoomOut = () => {
 		setZoom((prev) => Math.max(prev - 25, 50));
 	};
+
+	const updatePageFit = useCallback(() => {
+		if (viewMode !== 'page' || isPdf || !viewportRef.current || !docSize) {
+			return;
+		}
+		const viewport = viewportRef.current;
+		const padding = 36;
+		const availableWidth = viewport.clientWidth - padding;
+		const availableHeight = viewport.clientHeight - padding;
+		if (availableWidth <= 0 || availableHeight <= 0) {
+			return;
+		}
+		const scale = Math.min(
+			availableWidth / docSize.width,
+			availableHeight / docSize.height,
+			1,
+		);
+		setPageFitScale(scale);
+	}, [viewMode, isPdf, docSize]);
+
+	useLayoutEffect(() => {
+		updatePageFit();
+	}, [updatePageFit, zoom]);
+
+	useEffect(() => {
+		const onResize = () => updatePageFit();
+		window.addEventListener('resize', onResize);
+		return () => window.removeEventListener('resize', onResize);
+	}, [updatePageFit]);
+
+	useEffect(() => {
+		setDocSize(null);
+		setPageFitScale(1);
+	}, [documentPreview?.dataUrl]);
+
+	useEffect(() => {
+		const image = viewportRef.current?.querySelector('.ocr-doc-image');
+		if (image?.complete && image.naturalWidth > 0) {
+			setDocSize({ width: image.naturalWidth, height: image.naturalHeight });
+		}
+	}, [documentPreview?.dataUrl]);
+
+	const handleImageLoad = (event) => {
+		const image = event.currentTarget;
+		if (!image.naturalWidth || !image.naturalHeight) {
+			return;
+		}
+		setDocSize({ width: image.naturalWidth, height: image.naturalHeight });
+	};
+
+	const zoomFactor = zoom / 100;
+	const isPageFitCentered = viewMode === 'page' && zoom === 100;
+
+	const imageStyle = useMemo(() => {
+		if (!docSize) {
+			return { width: '100%', height: 'auto' };
+		}
+		if (viewMode === 'width') {
+			return {
+				width: `${100 * zoomFactor}%`,
+				height: 'auto',
+				maxWidth: 'none',
+			};
+		}
+		return {
+			width: `${Math.round(docSize.width * pageFitScale * zoomFactor)}px`,
+			height: 'auto',
+			maxWidth: 'none',
+		};
+	}, [docSize, viewMode, zoomFactor, pageFitScale]);
 
 	const handleFieldChange = (id, key, value) => {
 		setFields((prev) =>
@@ -139,24 +272,36 @@ function OcrResultPage() {
 		});
 	};
 
-	const hasUnresolvedErrors = fields.some((field) => field.hasError && !modifiedFields[field.id]);
 	const hasModifications = Object.keys(modifiedFields).length > 0;
 	const hasNoFields = fields.length === 0;
-	const disableValidation = hasNoFields || (!hasModifications && hasUnresolvedErrors);
+	// Comme la facture : validation possible sans modification prealable (corrections sur /validation).
+	const disableValidation = hasNoFields;
 	const groupedFields = groupFieldsBySection(fields).filter(
 		([sectionName]) => !HIDDEN_SECTIONS.has(sectionName)
 	);
 	const hasPendingChanges = hasModifications;
 
 	const handleValidate = () => {
-		const payload = {
+		const previewForValidation = displayPreview?.dataUrl
+			? displayPreview
+			: documentPreview?.dataUrl
+				? documentPreview
+				: remotePreview?.dataUrl
+					? remotePreview
+					: null;
+		const { ok } = saveDumValidationPayload({
 			documentId,
 			backendId,
 			fields,
 			modifiedFields,
-			savedAt: new Date().toISOString(),
-		};
-		localStorage.setItem('ocr_validation_payload', JSON.stringify(payload));
+			preview: previewForValidation,
+			rawResult: docMeta,
+		});
+		if (!ok) {
+			window.alert(
+				'Les champs ont été préparés mais le brouillon local est trop volumineux. L\'aperçu sera rechargé depuis le serveur sur la page validation.'
+			);
+		}
 		navigate('/validation');
 	};
 
@@ -189,72 +334,116 @@ function OcrResultPage() {
 			<section className="ocr-result-header">
 				<div>
 					<p className="ocr-result-kicker">OCR</p>
-					<h1>Resultats d&apos;Extraction OCR</h1>
+					<h1>Resultats d&apos;Extraction Déclaration DUM</h1>
 				</div>
 				<span className="ocr-doc-badge">{documentId}</span>
 			</section>
 
 			<div className="ocr-result-grid">
 				<section className="ocr-panel ocr-preview-panel">
-					<header className="ocr-panel-head">
-						<h2>Apercu du Document Original</h2>
+					<header className="ocr-preview-head">
+						<div className="ocr-preview-head-icon">
+							<FileText size={20} />
+						</div>
+						<div>
+							<h2>Aperçu du Document Original</h2>
+							<p>Zoomez puis faites défiler pour voir tout le document</p>
+						</div>
 					</header>
 
-					<div className="ocr-preview-viewport">
+					<div className="ocr-doc-viewer">
 						<div
-							className="ocr-preview-canvas"
-							style={{ transform: `scale(${zoom / 100})` }}
+							ref={viewportRef}
+							className={`ocr-doc-viewer-body ${isPageFitCentered ? 'ocr-doc-viewer-body--centered' : ''}`}
 						>
-							{documentPreview?.dataUrl ? (
+							{hasPreview ? (
 								isPdf ? (
 									<iframe
 										title="Document PDF"
-										src={documentPreview.dataUrl}
-										className="ocr-preview-pdf"
+										src={displayPreview.dataUrl}
+										className="ocr-doc-pdf"
 									/>
 								) : (
-									<img
-										src={documentPreview.dataUrl}
-										alt="Document OCR"
-										className="ocr-preview-image"
-									/>
+									<div className="ocr-doc-canvas">
+										<img
+											src={displayPreview.dataUrl}
+											alt="Document OCR"
+											className="ocr-doc-image"
+											style={imageStyle}
+											onLoad={handleImageLoad}
+											draggable={false}
+										/>
+									</div>
 								)
 							) : (
 								<div className="ocr-preview-placeholder">
 									<FileText size={26} />
-									<p>Aucun document charge</p>
-								</div>
-							)}
-
-							{hasPreview && !isPdf && (
-								<div className="ocr-zone-overlay" aria-hidden="true">
-									{OVERLAY_ZONES.map((zone) => (
-										<div
-											key={zone.id}
-											className="ocr-zone-box"
-											style={{
-												top: zone.top,
-												left: zone.left,
-												width: zone.width,
-												height: zone.height,
-											}}
-										>
-											<span>{zone.label}</span>
-										</div>
-									))}
+									<p>
+										{previewLoading
+											? 'Chargement de l\u2019aperçu depuis la GED…'
+											: 'Aucun document chargé'}
+									</p>
+									{previewError ? <p className="preview-placeholder-error">{previewError}</p> : null}
 								</div>
 							)}
 						</div>
-					</div>
 
-					<div className="ocr-zoom-controls">
-						<button type="button" onClick={handleZoomOut} className="ocr-zoom-btn" aria-label="Zoom out">
-							<ZoomOut size={16} />
-						</button>
-						<span>{zoom}%</span>
-						<button type="button" onClick={handleZoomIn} className="ocr-zoom-btn" aria-label="Zoom in">
-							<ZoomIn size={16} />
-						</button>
+						{hasPreview && (
+							<div className="ocr-doc-toolbar" role="toolbar" aria-label="Contrôles du document">
+								<button
+									type="button"
+									className={`ocr-doc-mode-btn ${viewMode === 'page' ? 'is-active' : ''}`}
+									onClick={() => {
+										setViewMode('page');
+										setZoom(100);
+									}}
+									aria-pressed={viewMode === 'page'}
+								>
+									<Maximize2 size={15} />
+									Page
+								</button>
+								<button
+									type="button"
+									className={`ocr-doc-mode-btn ${viewMode === 'width' ? 'is-active' : ''}`}
+									onClick={() => {
+										setViewMode('width');
+										setZoom(100);
+									}}
+									aria-pressed={viewMode === 'width'}
+									disabled={isPdf}
+								>
+									<ScanLine size={15} />
+									Largeur
+								</button>
+								<span className="ocr-doc-toolbar-sep" aria-hidden="true" />
+								<button
+									type="button"
+									onClick={handleZoomOut}
+									className="ocr-doc-zoom-btn"
+									disabled={zoom <= 50}
+									aria-label="Dézoomer"
+								>
+									<ZoomOut size={16} />
+								</button>
+								<button
+									type="button"
+									className="ocr-doc-zoom-value"
+									onClick={() => setZoom(100)}
+									aria-label="Réinitialiser le zoom"
+								>
+									{zoom}%
+								</button>
+								<button
+									type="button"
+									onClick={handleZoomIn}
+									className="ocr-doc-zoom-btn"
+									disabled={zoom >= 200}
+									aria-label="Zoomer"
+								>
+									<ZoomIn size={16} />
+								</button>
+							</div>
+						)}
 					</div>
 				</section>
 
@@ -267,17 +456,34 @@ function OcrResultPage() {
 						<span className="ocr-badge">OCR</span>
 					</header>
 
+					{displayPreview?.name && looksLikeInvoiceFileName(displayPreview.name) ? (
+						<div className="ocr-info-banner ocr-info-banner--warning">
+							<AlertTriangle size={16} />
+							<p>
+								Ce document ressemble a une <strong>facture</strong>, mais le formulaire affiche est celui
+								d&apos;une DUM. Reimportez depuis Import en choisissant{' '}
+								<strong>Facture commerciale</strong>, ou ouvrez{' '}
+								<Link to="/invoice-ocr-result">Resultats facture</Link>.
+							</p>
+						</div>
+					) : null}
+
 					<div className="ocr-info-banner">
 						<Info size={16} />
 						<p>
-							Le modele OCR peut parfois omettre certains champs. Corrigez les valeurs directement
-							dans la liste ci-dessous.
+							Seuls les champs detectes sur la DUM sont affiches. Corrigez puis validez depuis le formulaire de validation.
 						</p>
 					</div>
 
 					<div className="ocr-field-list">
 						{groupedFields.length === 0 ? (
-							<p>Aucune donnee a afficher.</p>
+							<div className="ocr-empty-state">
+								<p>Aucune extraction DUM enregistree.</p>
+								<p className="ocr-empty-hint">
+									Importez une declaration depuis la page Import, ou consultez{' '}
+									<Link to="/invoice-ocr-result">Resultats facture</Link> si vous avez extrait une facture.
+								</p>
+							</div>
 						) : groupedFields.map(([sectionName, sectionFields]) => (
 							<div key={sectionName} className="ocr-section-block">
 								<p className="ocr-section-title">{sectionName}</p>
@@ -351,7 +557,7 @@ function OcrResultPage() {
 							onClick={handleValidate}
 							disabled={disableValidation}
 						>
-							Valider les donnees
+							Valider les données de déclaration DUM 
 						</button>
 					</div>
 				</section>

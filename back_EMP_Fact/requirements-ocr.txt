@@ -1,0 +1,4 @@
+# Dépendances OCR avancées (Paddle — aligné back_EMP). Installer après requirements.txt
+-r requirements.txt
+paddleocr>=2.7,<3
+paddlepaddle>=2.6,<3

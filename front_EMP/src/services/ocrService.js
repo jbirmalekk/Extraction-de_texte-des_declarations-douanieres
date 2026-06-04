@@ -47,3 +47,55 @@ export const fetchLatestOcrCorrections = async (documentId) => {
 	const { data } = await apiClient.get(`/api/ocr/${documentId}/corrections/latest`);
 	return data;
 };
+
+/** Timeline complète des corrections d'un document DUM. */
+export const fetchDocumentCorrections = async (documentId) => {
+	const { data } = await apiClient.get(`/api/ocr/${documentId}/corrections`);
+	return data;
+};
+
+export const fetchMyDashboard = async () => {
+	const { data } = await apiClient.get('/api/dashboard/me');
+	return data;
+};
+
+export const fetchAdminDashboard = async () => {
+	const { data } = await apiClient.get('/api/dashboard/admin');
+	return data;
+};
+
+/**
+ * @param {{ skip?: number, limit?: number }} [params]
+ */
+export const fetchAdminHistory = async (params = {}) => {
+	const { data } = await apiClient.get('/api/dashboard/history', { params });
+	return data;
+};
+
+/**
+ * @param {{ skip?: number, limit?: number }} [params]
+ */
+export const fetchMyHistory = async (params = {}) => {
+	const { data } = await apiClient.get('/api/dashboard/me/history', { params });
+	return data;
+};
+
+export const fetchDocumentDetail = async (documentId) => {
+	const { data } = await apiClient.get(`/api/documents/${documentId}`);
+	return data;
+};
+
+/**
+ * Liste des DUM (documents) pour sélection partenaire réconciliation.
+ * @param {{ skip?: number, limit?: number }} [params]
+ */
+export const fetchOcrDocuments = async (params = {}) => {
+	const { data } = await apiClient.get('/api/documents', { params });
+	return data;
+};
+
+/** Supprime une ou plusieurs DUM (base + fichier local). */
+export const bulkDeleteDocuments = async (ids) => {
+	const { data } = await apiClient.post('/api/documents/bulk-delete', { ids });
+	return data;
+};

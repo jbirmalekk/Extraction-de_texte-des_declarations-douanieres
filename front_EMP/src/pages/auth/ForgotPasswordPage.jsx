@@ -16,9 +16,9 @@ function ForgotPasswordPage() {
 		setError('');
 		try {
 			const res = await requestPasswordReset(email);
-			setMessage(res?.message || 'If the email exists, a reset link has been sent.');
+			setMessage(res?.message || 'Si cet e-mail existe, un lien de réinitialisation a été envoyé.');
 		} catch (err) {
-			setError(err?.response?.data?.detail || 'Unable to send reset link. Please try again.');
+			setError(err?.response?.data?.detail || 'Impossible d\'envoyer le lien. Réessayez.');
 		} finally {
 			setLoading(false);
 		}
@@ -28,7 +28,7 @@ function ForgotPasswordPage() {
 		<div className="auth-container fancy-auth-bg">
 			<Link to="/login" className="auth-back">
 				<span className="auth-back-arrow">←</span>
-				<span>Login</span>
+				<span>Connexion</span>
 			</Link>
 			<div className="auth-blob auth-blob-one" />
 			<div className="auth-blob auth-blob-two" />
@@ -39,28 +39,28 @@ function ForgotPasswordPage() {
 							<img src={empLogo} alt="EMP Logo" className="accent-logo" />
 							<span className="accent-name">EMP SmartOCR</span>
 						</div>
-						<h2>Password recovery</h2>
-						<p>Remember your password?</p>
+						<h2>Récupération du mot de passe</h2>
+						<p>Vous vous souvenez de votre mot de passe ?</p>
 						<Link to="/login" className="accent-cta">
-							Back to login
+							Retour à la connexion
 						</Link>
 					</div>
 				</div>
 
 				<div className="form-panel fade-up">
 					<div className="auth-header split-header">
-						<h1>Forgot password</h1>
-						<p className="auth-subtitle">Enter your email to receive a reset link.</p>
+						<h1>Mot de passe oublié</h1>
+						<p className="auth-subtitle">Saisissez votre e-mail pour recevoir un lien de réinitialisation.</p>
 					</div>
 
 					<form onSubmit={handleSubmit} className="auth-form">
 						<div className="form-group">
-							<label htmlFor="email">Email</label>
+							<label htmlFor="email">E-mail</label>
 							<input
 								id="email"
 								type="email"
 								className="form-input"
-								placeholder="Enter your email"
+								placeholder="votre@email.com"
 								value={email}
 								onChange={(e) => setEmail(e.target.value)}
 								required
@@ -71,14 +71,14 @@ function ForgotPasswordPage() {
 						{error && <div className="error-message">{error}</div>}
 
 						<button type="submit" className="auth-button" disabled={loading}>
-							{loading ? 'Sending...' : 'Send reset link'}
+							{loading ? 'Envoi…' : 'Envoyer le lien'}
 						</button>
 					</form>
 
 					<p className="auth-footer">
-						Back to{' '}
+						Retour à la{' '}
 						<Link to="/login" className="auth-link">
-							Sign in
+							connexion
 						</Link>
 					</p>
 				</div>

@@ -1,0 +1,70 @@
+{
+  "summary": {
+    "documents": 9,
+    "processed_ok": 0,
+    "non_empty_coverage": {
+      "numero_declaration": 0.0,
+      "date_declaration": 0.0,
+      "exportateur_nom": 0.0,
+      "importateur_nom": 0.0,
+      "declarant_nom": 0.0,
+      "num_repertoire": 0.0,
+      "numero_credit": 0.0,
+      "bureau_frontiere": 0.0,
+      "destination": 0.0,
+      "localisation_export": 0.0,
+      "poids_brut": 0.0,
+      "poids_net": 0.0,
+      "code_qcs": 0.0,
+      "qcs": 0.0,
+      "pfn": 0.0,
+      "code_regime_financier": 0.0,
+      "code_delai": 0.0,
+      "cle_authentification": 0.0,
+      "certificat_decharge": 0.0,
+      "numero_escale": 0.0,
+      "rubrique": 0.0,
+      "engag_c": 0.0,
+      "solde_autres_elements_ptfn": 0.0,
+      "cours_conversion_zone": 0.0
+    }
+  },
+  "results": [
+    {
+      "file": "c__Users_User_AppData_Roaming_Cursor_User_workspaceStorage_b72184e92d15cecc0cb3d599fcedfd01_images_d_claration_import-6a10da58-e08e-404c-84ac-72c44b24d222.png",
+      "error": "timeout_90s"
+    },
+    {
+      "file": "c__Users_User_AppData_Roaming_Cursor_User_workspaceStorage_b72184e92d15cecc0cb3d599fcedfd01_images_d_claration-128a9ae6-50db-4222-a121-a1a3f1250a7d.png",
+      "error": "timeout_90s"
+    },
+    {
+      "file": "c__Users_User_AppData_Roaming_Cursor_User_workspaceStorage_b72184e92d15cecc0cb3d599fcedfd01_images_d_claration-43819783-6e23-4cfc-8281-73e1fbb003ab.png",
+      "error": "timeout_90s"
+    },
+    {
+      "file": "c__Users_User_AppData_Roaming_Cursor_User_workspaceStorage_b72184e92d15cecc0cb3d599fcedfd01_images_d_claration-7b24b607-70d8-4e66-a3ea-ada9584dc1d9.png",
+      "error": "timeout_90s"
+    },
+    {
+      "file": "c__Users_User_AppData_Roaming_Cursor_User_workspaceStorage_b72184e92d15cecc0cb3d599fcedfd01_images_d_claration-80484d18-e41d-4503-ab35-da2f088b7428.png",
+      "error": "timeout_90s"
+    },
+    {
+      "file": "c__Users_User_AppData_Roaming_Cursor_User_workspaceStorage_b72184e92d15cecc0cb3d599fcedfd01_images_d_claration-c4a7af29-140c-485c-854f-a75b7a8a8861.png",
+      "error": "timeout_90s"
+    },
+    {
+      "file": "c__Users_User_AppData_Roaming_Cursor_User_workspaceStorage_b72184e92d15cecc0cb3d599fcedfd01_images_d_claration-d38f9670-3c23-40a7-bf33-b1143175878d.png",
+      "error": "timeout_90s"
+    },
+    {
+      "file": "c__Users_User_AppData_Roaming_Cursor_User_workspaceStorage_b72184e92d15cecc0cb3d599fcedfd01_images_declaration-dd55307c-2cfe-4e78-aa8d-d6cd3f737866.png",
+      "error": "timeout_90s"
+    },
+    {
+      "file": "c__Users_User_AppData_Roaming_Cursor_User_workspaceStorage_b72184e92d15cecc0cb3d599fcedfd01_images_d_claration-481d659c-015a-4c98-9328-f260388ca296.png",
+      "error": "timeout_90s"
+    }
+  ]
+}

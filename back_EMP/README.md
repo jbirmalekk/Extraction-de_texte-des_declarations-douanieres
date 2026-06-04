@@ -1,209 +1,180 @@
-# Backend OCR Extraction API
+# Backend EMP SmartOCR
 
-API FastAPI pour l'extraction automatique de données depuis des documents (PDF, scannés).
+API FastAPI pour l'authentification, l'extraction OCR, la validation humaine et le reporting (dashboard/historique).
 
-## 🚀 Démarrage rapide
+## Demarrage rapide
 
-### 1. Activer l'environnement virtuel
+### 1) Activer l'environnement virtuel
 
 ```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-### 2. Installer les dépendances (si pas déjà fait)
+### 2) Installer les dependances
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-### 3. Configurer les variables d'environnement
+### 3) Configurer les variables d'environnement
 
-Vérifiez que le fichier `.env` contient bien :
-- DB_SERVER, DB_NAME (SQL Server)
-- SECRET_KEY (généré avec `python -c "import secrets; print(secrets.token_hex(32))"`)
-- TESSERACT_PATH, POPPLER_PATH
+Le fichier `.env` doit contenir au minimum:
 
-### 4. Lancer l'API
+- `DB_SERVER`, `DB_NAME`, `DB_DRIVER`, `DB_TRUSTED_CONNECTION` (ou `DB_USER`/`DB_PASSWORD`)
+- `SECRET_KEY` (obligatoire, >= 32 caracteres)
+- `FRONTEND_URL`
+- `TESSERACT_PATH` et `POPPLER_PATH` selon votre environnement
+
+Exemple de generation d'une cle:
+
+```powershell
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### 4) Lancer l'API
 
 ```powershell
 uvicorn app.main:app --reload
 ```
 
-L'API sera accessible sur : `http://localhost:8000`
+- API: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
 
-Documentation interactive : `http://localhost:8000/docs`
+## Configuration Nextcloud GED (optionnelle)
 
-## 📋 Endpoints d'authentification
+Variables backend:
 
-### 1. Sign-up (Créer un compte)
+- `NEXTCLOUD_ENABLED=true|false`
+- `NEXTCLOUD_BASE_URL`
+- `NEXTCLOUD_USERNAME`
+- `NEXTCLOUD_PASSWORD`
+- `NEXTCLOUD_UPLOAD_ROOT=EMP-SmartOCR`
+- `NEXTCLOUD_TIMEOUT_SECONDS=20`
+- `NEXTCLOUD_VERIFY_SSL=true|false`
+- `NEXTCLOUD_REQUIRED=true|false`
 
-**POST** `/auth/signup`
+Comportement:
 
-```json
-{
-  "username": "alice",
-  "email": "alice@example.com",
-  "password": "monMotDePasse123"
-}
-```
+- si `NEXTCLOUD_REQUIRED=false`: fallback SQL si upload GED en echec
+- si `NEXTCLOUD_REQUIRED=true`: erreur HTTP 502 si GED indisponible
 
-**Réponse** (201 Created) :
-```json
-{
-  "id": 1,
-  "username": "alice",
-  "email": "alice@example.com",
-  "is_active": true,
-  "created_at": "2026-02-15T10:30:00"
-}
-```
+Le nom du poste client peut etre transmis avec le header `X-Client-PC-Name`.
 
-### 2. Login (Obtenir un token)
+## Endpoints principaux
 
-**POST** `/auth/login`
+### Sante
 
-Form data :
-- `username`: alice
-- `password`: monMotDePasse123
+- `GET /health` : etat API + connectivite DB
 
-**Réponse** (200 OK) :
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer"
-}
-```
+### Authentification (`/auth`)
 
-### 3. Get user info (endpoint protégé)
+- `POST /auth/signup`
+  - payload JSON: `username`, `email`, `password`
+  - cree un compte non approuve et non verifie email
+- `POST /auth/login`
+  - payload JSON: `email`, `password`
+  - retourne `access_token` si email verifie + compte approuve + actif
+- `POST /auth/logout`
+  - invalide le token courant (blacklist en memoire)
+- `GET /auth/me`
+  - retourne le profil de l'utilisateur connecte
+- `POST /auth/verify-email`
+  - confirme l'email via token
+- `POST /auth/forgot-password`
+  - declenche l'envoi email reset (reponse generique, sans divulgation de token)
+- `POST /auth/reset-password`
+  - applique un nouveau mot de passe avec token reset
+- `PUT /auth/me`
+  - mise a jour profil courant
+- `PUT /auth/me/password`
+  - changement de mot de passe courant
 
-**GET** `/auth/me`
+Administration (role admin):
 
-Headers :
-- `Authorization: Bearer <votre_token>`
+- `GET /auth/users`
+- `GET /auth/users/{user_id}`
+- `PUT /auth/users/{user_id}`
+- `DELETE /auth/users/{user_id}`
+- `GET /auth/pending-users`
+- `POST /auth/approve-user/{user_id}`
+- `POST /auth/reject-user/{user_id}`
 
-**Réponse** (200 OK) :
-```json
-{
-  "id": 1,
-  "username": "alice",
-  "email": "alice@example.com",
-  "is_active": true
-}
-```
+### OCR et documents (`/api`)
 
-### 4. Logout (Révoquer le token)
+- `POST /api/ocr`
+  - upload `multipart/form-data` (`file`)
+  - query params: `fast_mode`, `use_deskew`
+  - persiste `Document`, `OCRResult`, `ExtractedField`, `Taxe`, `Article`, `DocumentUploadTrace`
+- `PUT /api/ocr/{document_id}/valider`
+  - enregistre une session de validation et l'historique des corrections
+- `GET /api/ocr/{document_id}/corrections/latest`
+  - retourne la derniere correction par champ
+- `GET /api/documents`
+  - admin: tous les documents
+  - user: uniquement ses documents
+- `GET /api/documents/{document_id}`
+  - detail document avec controle d'acces
 
-**POST** `/auth/logout`
+### Dashboard (`/api/dashboard`)
 
-Headers :
-- `Authorization: Bearer <votre_token>`
+- `GET /api/dashboard/me`
+- `GET /api/dashboard/me/history`
+- `GET /api/dashboard/admin` (admin)
+- `GET /api/dashboard/history` (admin)
 
-**Réponse** (200 OK) :
-```json
-{
-  "message": "Successfully logged out"
-}
-```
+## Exemple rapide avec curl
 
-## 🧪 Tester avec curl
+### Signup
 
-### Sign-up
 ```powershell
 curl -X POST "http://localhost:8000/auth/signup" `
   -H "Content-Type: application/json" `
-  -d '{"username":"alice","email":"alice@test.com","password":"secret123"}'
+  -d '{"username":"alice","email":"alice@test.com","password":"StrongP@ssw0rd"}'
 ```
 
-### Login
+### Login (JSON email/password)
+
 ```powershell
 curl -X POST "http://localhost:8000/auth/login" `
-  -F "username=alice" `
-  -F "password=secret123"
+  -H "Content-Type: application/json" `
+  -d '{"email":"alice@test.com","password":"StrongP@ssw0rd"}'
 ```
 
-### Get user info (remplacer TOKEN)
+### Upload OCR (remplacer TOKEN et chemin fichier)
+
 ```powershell
-curl -X GET "http://localhost:8000/auth/me" `
-  -H "Authorization: Bearer TOKEN"
+curl -X POST "http://localhost:8000/api/ocr?fast_mode=false&use_deskew=true" `
+  -H "Authorization: Bearer TOKEN" `
+  -H "X-Client-PC-Name: Poste-Import-01" `
+  -F "file=@C:/tmp/document.pdf"
 ```
 
-### Logout
-```powershell
-curl -X POST "http://localhost:8000/auth/logout" `
-  -H "Authorization: Bearer TOKEN"
-```
+## Structure backend (vue simplifiee)
 
-## 🧪 Tester avec Python
-
-```python
-import requests
-
-BASE_URL = "http://localhost:8000"
-
-# 1. Sign-up
-response = requests.post(f"{BASE_URL}/auth/signup", json={
-    "username": "alice",
-    "email": "alice@test.com",
-    "password": "secret123"
-})
-print("Signup:", response.json())
-
-# 2. Login
-response = requests.post(f"{BASE_URL}/auth/login", data={
-    "username": "alice",
-    "password": "secret123"
-})
-token_data = response.json()
-token = token_data["access_token"]
-print("Token:", token)
-
-# 3. Get user info
-headers = {"Authorization": f"Bearer {token}"}
-response = requests.get(f"{BASE_URL}/auth/me", headers=headers)
-print("User info:", response.json())
-
-# 4. Logout
-response = requests.post(f"{BASE_URL}/auth/logout", headers=headers)
-print("Logout:", response.json())
-```
-
-## 📁 Structure du projet
-
-```
+```text
 back_EMP/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py              # Point d'entrée FastAPI
-│   ├── config.py            # Configuration (.env)
-│   ├── database.py          # Connexion SQL Server
+│   ├── main.py
+│   ├── config.py
+│   ├── database/
+│   │   ├── __init__.py
+│   │   └── connection.py
+│   ├── database.py              # couche compatibilite d'import
 │   ├── models/
-│   │   ├── __init__.py
-│   │   └── user.py          # Modèle User (SQLAlchemy)
 │   ├── schemas/
-│   │   ├── __init__.py
-│   │   └── user.py          # Schémas Pydantic
 │   ├── routers/
-│   │   ├── __init__.py
-│   │   └── auth.py          # Endpoints auth
+│   │   ├── auth.py
+│   │   ├── ocr.py
+│   │   └── dashboard.py
+│   ├── services/
 │   └── utils/
-│       ├── __init__.py
-│       └── security.py      # JWT + hashing
-├── .env                     # Variables d'environnement
 ├── requirements.txt
 └── README.md
 ```
 
-## 🔐 Sécurité
+## Notes securite
 
-- **Mots de passe** : hashés avec bcrypt
-- **Tokens JWT** : signés avec HS256, expiration configurable
-- **Logout** : blacklist en mémoire (à remplacer par Redis en prod)
-- **CORS** : configuré pour le frontend
-
-## 🛠️ Prochaines étapes
-
-1. Ajouter endpoints pour upload/traitement de documents PDF
-2. Intégrer OCR (Tesseract + pdf2image)
-3. Ajouter extraction de données structurées
-4. Implémenter stockage persistant pour tokens révoqués (Redis)
-5. Ajouter tests unitaires (pytest)
+- Mots de passe hashes via bcrypt.
+- JWT signes avec `SECRET_KEY` obligatoire.
+- Blacklist logout en memoire (prevoyez Redis/DB en production).
+- Ne jamais versionner de secrets dans Git (`.env`, mots de passe compose, tokens).

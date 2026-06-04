@@ -7,14 +7,13 @@ import re
 import uuid
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+from sqlalchemy.orm import Session
 from ..config import settings
+from ..database import SessionLocal
+from ..models.user import RevokedToken
 
 # Context pour hashing des mots de passe avec bcrypt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Stockage en mémoire des tokens révoqués (jti)
-# En production, utiliser Redis ou une table BD
-_revoked_tokens: set[str] = set()
 
 PASSWORD_POLICY_MESSAGE = (
     "Password must contain at least 8 characters, including at least one uppercase letter, "
@@ -75,7 +74,18 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(subject: str, expires_delta: Optional[timedelta] = None) -> str:
+def _create_signed_token(payload: dict, expires_delta: timedelta) -> str:
+    to_encode = payload.copy()
+    to_encode["jti"] = uuid.uuid4().hex
+    to_encode["exp"] = datetime.utcnow() + expires_delta
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def create_access_token(
+    subject: str,
+    token_version: int = 0,
+    expires_delta: Optional[timedelta] = None
+) -> str:
     """
     Crée un token JWT.
     
@@ -86,23 +96,32 @@ def create_access_token(subject: str, expires_delta: Optional[timedelta] = None)
     Returns:
         Token JWT encodé
     """
-    to_encode = {"sub": subject}
-    
-    # Ajouter un jti (JWT ID unique) pour permettre la révocation
-    jti = uuid.uuid4().hex
-    to_encode["jti"] = jti
-    
-    # Calculer l'expiration
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode["exp"] = expire
-    
-    # Encoder le token
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
+    ttl = expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return _create_signed_token(
+        {
+            "sub": subject,
+            "scope": "access",
+            "tv": token_version,
+        },
+        ttl,
+    )
+
+
+def create_refresh_token(
+    subject: str,
+    token_version: int = 0,
+    expires_delta: Optional[timedelta] = None
+) -> str:
+    """Crée un refresh token JWT pour renouveler la session."""
+    ttl = expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    return _create_signed_token(
+        {
+            "sub": subject,
+            "scope": "refresh",
+            "tv": token_version,
+        },
+        ttl,
+    )
 
 
 def create_reset_token(subject: str, expires_minutes: int = 15) -> str:
@@ -158,20 +177,70 @@ def decode_access_token(token: str) -> dict:
         JWTError: Si le token est invalide ou expiré
     """
     payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    if payload.get("scope") != "access":
+        raise JWTError("Invalid access token scope")
     return payload
 
 
-def revoke_token(jti: str) -> None:
+def decode_refresh_token(token: str) -> dict:
+    """Décode et valide un refresh token."""
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    if payload.get("scope") != "refresh":
+        raise JWTError("Invalid refresh token scope")
+    return payload
+
+
+def _to_utc_datetime(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.utcfromtimestamp(int(value))
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+def _cleanup_expired_revoked_tokens(db: Session) -> None:
+    now = datetime.utcnow()
+    db.query(RevokedToken).filter(RevokedToken.expires_at < now).delete()
+
+
+def revoke_token(
+    jti: str,
+    exp: datetime | int | float | None = None,
+    db: Session | None = None,
+    token_type: str = "access",
+    username: str | None = None,
+) -> None:
     """
     Révoque un token en ajoutant son jti à la blacklist.
     
     Args:
         jti: JWT ID du token à révoquer
     """
-    _revoked_tokens.add(jti)
+    token_exp = _to_utc_datetime(exp) or (datetime.utcnow() + timedelta(days=1))
+    owns_session = db is None
+    session = db or SessionLocal()
+    try:
+        existing = session.query(RevokedToken).filter(RevokedToken.jti == jti).first()
+        if existing is None:
+            session.add(
+                RevokedToken(
+                    jti=jti,
+                    expires_at=token_exp,
+                    token_type=token_type,
+                    username=username,
+                )
+            )
+        _cleanup_expired_revoked_tokens(session)
+        session.commit()
+    finally:
+        if owns_session:
+            session.close()
 
 
-def is_token_revoked(jti: str) -> bool:
+def is_token_revoked(jti: str, db: Session | None = None) -> bool:
     """
     Vérifie si un token a été révoqué.
     
@@ -181,7 +250,15 @@ def is_token_revoked(jti: str) -> bool:
     Returns:
         True si le token est révoqué
     """
-    return jti in _revoked_tokens
+    owns_session = db is None
+    session = db or SessionLocal()
+    try:
+        _cleanup_expired_revoked_tokens(session)
+        session.commit()
+        return session.query(RevokedToken.id).filter(RevokedToken.jti == jti).first() is not None
+    finally:
+        if owns_session:
+            session.close()
 
 
 def clear_revoked_tokens() -> None:
@@ -189,4 +266,9 @@ def clear_revoked_tokens() -> None:
     Vide la liste des tokens révoqués.
     Utile pour tests ou nettoyage périodique.
     """
-    _revoked_tokens.clear()
+    session = SessionLocal()
+    try:
+        session.query(RevokedToken).delete()
+        session.commit()
+    finally:
+        session.close()

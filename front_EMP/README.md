@@ -1,16 +1,66 @@
-# React + Vite
+# Frontend EMP SmartOCR
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application React/Vite pour l'authentification, l'import OCR, la validation de champs extraits et le reporting (dashboard/historique).
 
-Currently, two official plugins are available:
+## Prerequis
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Node.js 18+
+- Backend FastAPI disponible (par defaut `http://localhost:8000`)
 
-## React Compiler
+## Installation
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+```
 
-## Expanding the ESLint configuration
+## Configuration
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Creer un fichier `.env` (ou `.env.local`) a la racine de `front_EMP/`:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+## Lancement
+
+```bash
+npm run dev
+```
+
+Application: `http://localhost:5173`
+
+## Build production
+
+```bash
+npm run build
+npm run preview
+```
+
+## Flux fonctionnels
+
+1. **Auth**
+   - Login/Register/Forgot/Reset password
+   - Contexte session: `src/store/AuthContext.jsx`
+2. **OCR**
+   - Import document: `src/pages/ImportPage.jsx`
+   - Extraction backend: `src/services/ocrService.js` -> `POST /api/ocr`
+3. **Validation**
+   - Resultats OCR: `src/pages/OcrResultPage.jsx`
+   - Validation finale: `src/pages/ValidationPage.jsx` -> `PUT /api/ocr/{id}/valider`
+4. **Reporting**
+   - User dashboard/history: `/api/dashboard/me`, `/api/dashboard/me/history`
+   - Admin dashboard/history: `/api/dashboard/admin`, `/api/dashboard/history`
+
+## Routes principales
+
+- `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`
+- `/dashboard`, `/history`, `/profile`
+- `/import`, `/ocr-result`, `/validation`, `/documents/:documentId`
+- `/admin/dashboard`, `/admin/users`
+
+## Services API
+
+- `src/services/api.js` : client Axios + bearer token
+- `src/services/authService.js` : endpoints `/auth/*`
+- `src/services/ocrService.js` : endpoints `/api/*`
+- `src/services/userService.js` : endpoints admin/profil utilisateur

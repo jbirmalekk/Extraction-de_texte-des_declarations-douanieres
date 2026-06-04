@@ -1,10 +1,12 @@
 """
 Auth Router - Endpoints pour l'authentification (signup, login, logout, me)
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import timedelta
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from jose import JWTError
+import logging
 
 from ..database import get_db
 from ..config import settings
@@ -25,6 +27,7 @@ from ..schemas.user import (
     SignupResponse,
 )
 from ..utils import security
+from ..utils.rate_limit import LimitRule, enforce_rate_limit, record_failed_login
 from ..utils.email_service import (
     send_reset_email,
     send_email_verification,
@@ -32,9 +35,81 @@ from ..utils.email_service import (
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 # OAuth2 scheme pour extraire le token depuis le header Authorization
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+
+
+LOGIN_LIMIT = LimitRule(max_requests=10, per_seconds=60)
+SIGNUP_LIMIT = LimitRule(max_requests=5, per_seconds=300)
+FORGOT_PASSWORD_LIMIT = LimitRule(max_requests=5, per_seconds=300)
+
+
+def _same_site_value() -> str:
+    value = (settings.COOKIE_SAMESITE or "lax").lower()
+    if value not in {"lax", "strict", "none"}:
+        return "lax"
+    return value
+
+
+def _cookie_domain() -> str | None:
+    domain = settings.COOKIE_DOMAIN.strip()
+    return domain or None
+
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    same_site = _same_site_value()
+    secure = settings.COOKIE_SECURE
+    if same_site == "none":
+        secure = True
+
+    response.set_cookie(
+        key=settings.ACCESS_COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        secure=secure,
+        samesite=same_site,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path=settings.COOKIE_PATH,
+        domain=_cookie_domain(),
+    )
+    response.set_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=secure,
+        samesite=same_site,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path=settings.COOKIE_PATH,
+        domain=_cookie_domain(),
+    )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    response.delete_cookie(
+        key=settings.ACCESS_COOKIE_NAME,
+        path=settings.COOKIE_PATH,
+        domain=_cookie_domain(),
+    )
+    response.delete_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        path=settings.COOKIE_PATH,
+        domain=_cookie_domain(),
+    )
+
+
+def get_access_token_from_request(request: Request, bearer_token: str | None) -> str:
+    if bearer_token:
+        return bearer_token
+    cookie_token = request.cookies.get(settings.ACCESS_COOKIE_NAME)
+    if cookie_token:
+        return cookie_token
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Missing access token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 # ========== CRUD Helpers ==========
@@ -106,7 +181,8 @@ def delete_user(db: Session, db_user: User) -> None:
 # ========== Dependency pour obtenir l'utilisateur courant ==========
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    token: str | None = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
     """
@@ -122,23 +198,25 @@ async def get_current_user(
     )
     
     try:
+        token_value = get_access_token_from_request(request, token)
         # Décoder le token
-        payload = security.decode_access_token(token)
+        payload = security.decode_access_token(token_value)
         username: str = payload.get("sub")
         jti: str = payload.get("jti")
+        token_version: int = int(payload.get("tv", 0))
         
         if username is None:
             raise credentials_exception
         
         # Vérifier si le token a été révoqué
-        if jti and security.is_token_revoked(jti):
+        if jti and security.is_token_revoked(jti, db):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        token_data = TokenData(username=username, jti=jti)
+        token_data = TokenData(username=username, jti=jti, token_version=token_version)
     except JWTError:
         raise credentials_exception
     
@@ -147,6 +225,13 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     
+    if token_data.token_version != user.token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token version mismatch. Please login again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     
@@ -156,7 +241,7 @@ async def get_current_user(
 # ========== Endpoints ==========
 
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def signup(user_in: UserCreate, db: Session = Depends(get_db)):
+def signup(user_in: UserCreate, request: Request, db: Session = Depends(get_db)):
     """
     Endpoint pour créer un nouveau compte utilisateur (inscription).
     
@@ -166,6 +251,7 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
     - Le compte n'est pas approuvé jusqu'à l'approbation admin
     - Retourne les infos utilisateur (sans mot de passe)
     """
+    enforce_rate_limit(request, "auth_signup", SIGNUP_LIMIT)
     normalized_username = user_in.username.strip()
     if len(normalized_username) < 3:
         raise HTTPException(
@@ -216,6 +302,8 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(
+    response: Response,
+    request: Request,
     login_data: UserLogin,
     db: Session = Depends(get_db)
 ):
@@ -228,11 +316,26 @@ def login(
     - Vérifie que le compte est approuvé par l'admin
     - Retourne un access_token JWT
     """
+    enforce_rate_limit(request, "auth_login", LOGIN_LIMIT)
     # Récupérer l'utilisateur par email
     user = get_user_by_email(db, login_data.email)
     
     # Vérifier que l'utilisateur existe et que le mot de passe est correct
     if not user or not security.verify_password(login_data.password, user.hashed_password):
+        attempts = record_failed_login(login_data.email, request)
+        logger.warning(
+            "failed_login email=%s ip=%s attempts_15m=%s",
+            login_data.email,
+            request.client.host if request.client else "unknown",
+            attempts,
+        )
+        if attempts >= 5:
+            logger.error(
+                "security_alert high_failed_login email=%s ip=%s attempts_15m=%s",
+                login_data.email,
+                request.client.host if request.client else "unknown",
+                attempts,
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -250,7 +353,7 @@ def login(
     if not user.is_approved:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Account not approved yet. Please wait for admin approval."
+            detail="Votre compte n'est pas encore approuvé. Veuillez patienter jusqu'à l'approbation de l'administrateur."
         )
 
     # Vérifier que l'utilisateur est actif
@@ -261,13 +364,68 @@ def login(
         )
     
     # Créer le token JWT
-    access_token = security.create_access_token(subject=user.username)
-    
-    return {"access_token": access_token, "token_type": "bearer"}
+    access_token = security.create_access_token(subject=user.username, token_version=user.token_version)
+    refresh_token = security.create_refresh_token(subject=user.username, token_version=user.token_version)
+    set_auth_cookies(response, access_token, refresh_token)
+
+    return {
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "message": "Login successful",
+    }
+
+
+@router.post("/refresh", response_model=Token, status_code=status.HTTP_200_OK)
+def refresh_session(
+    response: Response,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    refresh_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
+
+    try:
+        payload = security.decode_refresh_token(refresh_token)
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    username = payload.get("sub")
+    jti = payload.get("jti")
+    token_version = int(payload.get("tv", 0))
+    exp = payload.get("exp")
+
+    if not username or not jti:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token payload")
+    if security.is_token_revoked(jti, db):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token revoked")
+
+    user = get_user_by_username(db, username)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user session")
+    if token_version != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is no longer valid")
+
+    security.revoke_token(jti, exp, db, token_type="refresh", username=username)
+
+    new_access_token = security.create_access_token(subject=user.username, token_version=user.token_version)
+    new_refresh_token = security.create_refresh_token(subject=user.username, token_version=user.token_version)
+    set_auth_cookies(response, new_access_token, new_refresh_token)
+
+    return {
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "message": "Session refreshed",
+    }
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
-def logout(token: str = Depends(oauth2_scheme)):
+def logout(
+    response: Response,
+    request: Request,
+    token: str | None = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
     """
     Endpoint pour se déconnecter (révoque le token actuel).
     
@@ -278,8 +436,10 @@ def logout(token: str = Depends(oauth2_scheme)):
     Note: En production, implémenter un stockage persistant (Redis/DB)
     """
     try:
-        payload = security.decode_access_token(token)
+        token_value = get_access_token_from_request(request, token)
+        payload = security.decode_access_token(token_value)
         jti = payload.get("jti")
+        username = payload.get("sub")
         
         if not jti:
             raise HTTPException(
@@ -288,7 +448,23 @@ def logout(token: str = Depends(oauth2_scheme)):
             )
         
         # Révoquer le token
-        security.revoke_token(jti)
+        security.revoke_token(jti, payload.get("exp"), db, token_type="access", username=username)
+        refresh_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+        if refresh_token:
+            try:
+                refresh_payload = security.decode_refresh_token(refresh_token)
+                refresh_jti = refresh_payload.get("jti")
+                if refresh_jti:
+                    security.revoke_token(
+                        refresh_jti,
+                        refresh_payload.get("exp"),
+                        db,
+                        token_type="refresh",
+                        username=username,
+                    )
+            except JWTError:
+                pass
+        clear_auth_cookies(response)
         
         return {"message": "Successfully logged out"}
     
@@ -297,6 +473,19 @@ def logout(token: str = Depends(oauth2_scheme)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
+
+
+@router.post("/logout-all", status_code=status.HTTP_200_OK)
+def logout_all_sessions(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.token_version += 1
+    db.add(current_user)
+    db.commit()
+    clear_auth_cookies(response)
+    return {"message": "All sessions have been revoked"}
 
 
 @router.get("/me", response_model=UserOut)
@@ -645,16 +834,17 @@ def reject_user(
 
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
-def forgot_password(payload: PasswordResetRequest, db: Session = Depends(get_db)):
+def forgot_password(payload: PasswordResetRequest, request: Request, db: Session = Depends(get_db)):
     """
     Génère un token de réinitialisation (retourné directement ici faute d'email).
     En production, envoyer le token par email et ne pas révéler son contenu.
     """
+    enforce_rate_limit(request, "auth_forgot_password", FORGOT_PASSWORD_LIMIT)
     user = get_user_by_email(db, payload.email)
 
     # Réponse générique pour ne pas divulguer l'existence d'un compte
     if not user:
-        return {"message": "If the email exists, a reset link has been sent."}
+        return {"message": "Si l'e-mail existe, un lien de réinitialisation a été envoyé."}
 
     # Bloquer la réinitialisation tant que le compte est en attente d'approbation admin.
     if not user.is_approved:
@@ -666,15 +856,12 @@ def forgot_password(payload: PasswordResetRequest, db: Session = Depends(get_db)
     reset_token = security.create_reset_token(user.username)
     try:
         send_reset_email(user.email, reset_token, settings.FRONTEND_URL)
-    except Exception:
-        # En cas d'échec d'envoi, on peut encore retourner le token pour debug
-        return {
-            "message": "Reset token generated (email failed)",
-            "reset_token": reset_token,
-            "expires_minutes": 15,
-        }
+    except Exception as exc:
+        logger.exception("Failed to send reset email for user '%s': %s", user.username, exc)
+        # Réponse générique: ne jamais divulguer de token sensible
+        return {"message": "Si l'e-mail existe, un lien de réinitialisation a été envoyé."}
 
-    return {"message": "If the email exists, a reset link has been sent."}
+    return {"message": "Si l'e-mail existe, un lien de réinitialisation a été envoyé."}
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)

@@ -8,11 +8,16 @@ function LoginPage() {
 	const from = location.state?.from?.pathname || '/dashboard';
 	const successMessage = location.state?.message;
 
+	const handleLoginSuccess = (authData) => {
+		const roleAwareDestination = authData?.user?.role === 'admin' ? '/admin/dashboard' : from;
+		navigate(roleAwareDestination, { replace: true });
+	};
+
 	return (
 		<div className="auth-container fancy-auth-bg">
 			<Link to="/" className="auth-back">
 				<span className="auth-back-arrow">←</span>
-				<span>Welcome</span>
+				<span>Accueil</span>
 			</Link>
 			<div className="auth-blob auth-blob-one" />
 			<div className="auth-blob auth-blob-two" />
@@ -23,28 +28,28 @@ function LoginPage() {
 							<img src={empLogo} alt="EMP Logo" className="accent-logo" />
 							<span className="accent-name">EMP SmartOCR</span>
 						</div>
-						<h2>Hello, Welcome!</h2>
-						<p>Don't have an account?</p>
+						<h2>Bonjour, bienvenue !</h2>
+						<p>Vous n&apos;avez pas de compte ?</p>
 						<Link to="/register" className="accent-cta">
-							Registre
+							S&apos;inscrire
 						</Link>
 					</div>
 				</div>
 
 				<div className="form-panel fade-up">
 					<div className="auth-header split-header">
-						<h1>Login</h1>
-						<p className="auth-subtitle">Welcome back! Please login to your account.</p>
+						<h1>Connexion</h1>
+						<p className="auth-subtitle">Bon retour ! Connectez-vous à votre compte.</p>
 					</div>
 
 					{successMessage && <div className="success-message">{successMessage}</div>}
 
-					<LoginForm onSuccess={() => navigate(from, { replace: true })} />
+					<LoginForm onSuccess={handleLoginSuccess} />
 
 					<p className="auth-footer">
-						Don't have an account?{' '}
+						Vous n&apos;avez pas de compte ?{' '}
 						<Link to="/register" className="auth-link">
-							Create account
+							Créer un compte
 						</Link>
 					</p>
 				</div>

@@ -1,10 +1,7 @@
-import apiClient, { setToken, clearToken } from './api';
+import apiClient from './api';
 
 export const login = async ({ email, password }) => {
 	const { data } = await apiClient.post('/auth/login', { email, password });
-	if (data?.access_token) {
-		setToken(data.access_token);
-	}
 	return data;
 };
 
@@ -23,8 +20,13 @@ export const logout = async () => {
 	try {
 		await apiClient.post('/auth/logout');
 	} finally {
-		clearToken();
+		// HttpOnly cookies are cleared server-side by /auth/logout.
 	}
+};
+
+export const logoutAllSessions = async () => {
+	const { data } = await apiClient.post('/auth/logout-all');
+	return data;
 };
 
 export const requestPasswordReset = async (email) => {

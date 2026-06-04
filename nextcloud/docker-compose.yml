@@ -5,10 +5,10 @@ services:
     volumes:
       - ./nextcloud_db:/var/lib/mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=rootpass123
-      - MYSQL_PASSWORD=ncpass123
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
 
   app:
     image: nextcloud:apache
@@ -20,10 +20,10 @@ services:
     volumes:
       - ./nextcloud_data:/var/www/html
     environment:
-      - MYSQL_PASSWORD=ncpass123
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
-      - MYSQL_HOST=db
-      - NEXTCLOUD_ADMIN_USER=admin
-      - NEXTCLOUD_ADMIN_PASSWORD=adminpass123
-      - NEXTCLOUD_TRUSTED_DOMAINS=localhost 127.0.0.1
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+      - NEXTCLOUD_TRUSTED_DOMAINS=${NEXTCLOUD_TRUSTED_DOMAINS}

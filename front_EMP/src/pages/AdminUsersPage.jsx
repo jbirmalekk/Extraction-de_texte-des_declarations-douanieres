@@ -242,7 +242,7 @@ function AdminUsersPage() {
 							<>
 								<div className="admin-users-head">
 									<span>Utilisateur</span>
-									<span>Email</span>
+									<span>E-mail</span>
 									<span>Date inscription</span>
 									<span>Actions</span>
 								</div>
@@ -284,7 +284,7 @@ function AdminUsersPage() {
 					<div className="admin-users-table">
 						<div className="admin-users-head">
 							<span>Utilisateur</span>
-							<span>Email</span>
+							<span>E-mail</span>
 							<span>Role</span>
 							<span>Statut</span>
 							<span>Approbation</span>
@@ -373,7 +373,7 @@ function AdminUsersPage() {
 								<p>{viewUser.username}</p>
 							</div>
 							<div>
-								<p className="admin-view-label">Email</p>
+								<p className="admin-view-label">E-mail</p>
 								<p>{viewUser.email || '-'}</p>
 							</div>
 							<div>
@@ -385,7 +385,7 @@ function AdminUsersPage() {
 								<p>{viewUser.is_active && viewUser.is_approved ? 'Actif' : 'Inactif'}</p>
 							</div>
 							<div>
-								<p className="admin-view-label">Email verifie</p>
+								<p className="admin-view-label">E-mail vérifié</p>
 								<p>{viewUser.is_email_verified ? 'Oui' : 'Non'}</p>
 							</div>
 							<div>
@@ -425,7 +425,7 @@ function AdminUsersPage() {
 								/>
 							</div>
 							<div className="form-group">
-								<label htmlFor="admin-edit-email">Email</label>
+								<label htmlFor="admin-edit-email">E-mail</label>
 								<input
 									id="admin-edit-email"
 									type="email"

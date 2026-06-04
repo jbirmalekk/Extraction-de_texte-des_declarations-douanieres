@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 
-function DropZone({ onFileDrop, accept = '.pdf,image/*', disabled = false }) {
+function DropZone({ onFileDrop, accept = '.pdf,image/*', disabled = false, multiple = false }) {
 	const inputRef = useRef(null);
 	const [isDragging, setIsDragging] = useState(false);
 
@@ -23,16 +23,16 @@ function DropZone({ onFileDrop, accept = '.pdf,image/*', disabled = false }) {
 			return;
 		}
 		setIsDragging(false);
-		const file = event.dataTransfer?.files?.[0];
-		if (file) {
-			onFileDrop?.(file);
+		const files = Array.from(event.dataTransfer?.files || []);
+		if (files.length) {
+			onFileDrop?.(files);
 		}
 	};
 
 	const handleFileSelect = (event) => {
-		const file = event.target.files?.[0];
-		if (file) {
-			onFileDrop?.(file);
+		const files = Array.from(event.target.files || []);
+		if (files.length) {
+			onFileDrop?.(files);
 			// Reset the input so the same file can be re-selected if needed
 			event.target.value = '';
 		}
@@ -46,7 +46,9 @@ function DropZone({ onFileDrop, accept = '.pdf,image/*', disabled = false }) {
 			onDrop={handleDrop}
 		>
 			<div className="dropzone-content">
-				<p className="dropzone-title">Glissez-deposez votre fichier</p>
+				<p className="dropzone-title">
+					{multiple ? 'Glissez-deposez un ou plusieurs fichiers' : 'Glissez-deposez votre fichier'}
+				</p>
 				<p className="dropzone-subtitle">ou cliquez pour parcourir votre ordinateur</p>
 				<button
 					type="button"
@@ -54,15 +56,19 @@ function DropZone({ onFileDrop, accept = '.pdf,image/*', disabled = false }) {
 					onClick={() => inputRef.current?.click()}
 					disabled={disabled}
 				>
-					Choisir un fichier
+					{multiple ? 'Choisir des fichiers' : 'Choisir un fichier'}
 				</button>
-				<p className="dropzone-hint">Formats supportes : PDF, JPG, PNG (max 25 MB)</p>
+				<p className="dropzone-hint">
+					Formats supportes : PDF, JPG, PNG (max 25 MB)
+					{multiple ? ' — selection multiple possible (Ctrl+clic)' : ''}
+				</p>
 			</div>
 			<input
 				type="file"
 				ref={inputRef}
 				className="dropzone-input"
 				accept={accept}
+				multiple={multiple}
 				onChange={handleFileSelect}
 				disabled={disabled}
 			/>

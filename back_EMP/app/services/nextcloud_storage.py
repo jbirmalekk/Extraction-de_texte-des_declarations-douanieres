@@ -132,3 +132,37 @@ def upload_file_to_nextcloud(
         "etag": response.headers.get("ETag"),
         "uploaded_at": timestamp.isoformat(),
     }
+
+
+def download_file_from_nextcloud(remote_path: str) -> tuple[bytes, str | None]:
+    """Télécharge un fichier depuis Nextcloud via WebDAV (chemin relatif stocké en base)."""
+    if not settings.NEXTCLOUD_ENABLED:
+        raise NextcloudUploadError("Nextcloud GED desactive.")
+
+    path = (remote_path or "").strip().lstrip("/")
+    if not path:
+        raise NextcloudUploadError("Chemin Nextcloud manquant.")
+
+    base_webdav_url = _get_webdav_base_url()
+    download_url = _build_webdav_url(base_webdav_url, path)
+
+    with requests.Session() as session:
+        session.auth = HTTPBasicAuth(settings.NEXTCLOUD_USERNAME, settings.NEXTCLOUD_PASSWORD)
+        try:
+            response = session.get(
+                download_url,
+                timeout=settings.NEXTCLOUD_TIMEOUT_SECONDS,
+                verify=settings.NEXTCLOUD_VERIFY_SSL,
+            )
+        except requests.RequestException as exc:
+            raise NextcloudUploadError(
+                f"Impossible de telecharger le fichier Nextcloud '{path}': {exc}"
+            ) from exc
+
+        if response.status_code != 200:
+            raise NextcloudUploadError(
+                f"Telechargement Nextcloud echoue pour '{path}' (status={response.status_code})."
+            )
+
+        content_type = (response.headers.get("Content-Type") or "").split(";")[0].strip() or None
+        return response.content, content_type

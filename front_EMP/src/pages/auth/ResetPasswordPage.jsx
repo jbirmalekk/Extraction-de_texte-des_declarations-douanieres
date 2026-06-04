@@ -21,15 +21,15 @@ function ResetPasswordPage() {
 		setMessage('');
 
 		if (!token) {
-			setError('Reset token is missing.');
+			setError('Jeton de réinitialisation manquant.');
 			return;
 		}
 		if (password !== confirmPassword) {
-			setError('Passwords do not match');
+			setError('Les mots de passe ne correspondent pas.');
 			return;
 		}
 
-		const passwordValidation = validatePasswordPolicy(password, 'en');
+		const passwordValidation = validatePasswordPolicy(password, 'fr');
 		if (!passwordValidation.isValid) {
 			setError(passwordValidation.message);
 			return;
@@ -38,10 +38,10 @@ function ResetPasswordPage() {
 		setLoading(true);
 		try {
 			const res = await confirmPasswordReset({ token, newPassword: password });
-			setMessage(res?.message || 'Password reset successful');
+			setMessage(res?.message || 'Mot de passe réinitialisé avec succès.');
 			setTimeout(() => navigate('/login'), 1500);
 		} catch (err) {
-			setError(err?.response?.data?.detail || 'Reset failed. Try again.');
+			setError(err?.response?.data?.detail || 'Échec de la réinitialisation. Réessayez.');
 		} finally {
 			setLoading(false);
 		}
@@ -51,7 +51,7 @@ function ResetPasswordPage() {
 		<div className="auth-container fancy-auth-bg">
 			<Link to="/login" className="auth-back">
 				<span className="auth-back-arrow">←</span>
-				<span>Login</span>
+				<span>Connexion</span>
 			</Link>
 			<div className="auth-blob auth-blob-one" />
 			<div className="auth-blob auth-blob-two" />
@@ -62,28 +62,28 @@ function ResetPasswordPage() {
 							<img src={empLogo} alt="EMP Logo" className="accent-logo" />
 							<span className="accent-name">EMP SmartOCR</span>
 						</div>
-						<h2>Create a new password</h2>
-						<p>Use a strong password with at least 8 characters.</p>
+						<h2>Nouveau mot de passe</h2>
+						<p>Utilisez un mot de passe fort d&apos;au moins 8 caractères.</p>
 						<Link to="/login" className="accent-cta">
-							Go to login
+							Aller à la connexion
 						</Link>
 					</div>
 				</div>
 
 				<div className="form-panel fade-up">
 					<div className="auth-header split-header">
-						<h1>Reset password</h1>
-						<p className="auth-subtitle">Choose a new password.</p>
+						<h1>Réinitialiser le mot de passe</h1>
+						<p className="auth-subtitle">Choisissez un nouveau mot de passe.</p>
 					</div>
 
 					<form onSubmit={handleSubmit} className="auth-form">
 						<div className="form-group">
-							<label htmlFor="password">New password</label>
+							<label htmlFor="password">Nouveau mot de passe</label>
 							<input
 								id="password"
 								type="password"
 								className="form-input"
-								placeholder="Enter new password"
+								placeholder="Nouveau mot de passe"
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
 								required
@@ -91,12 +91,12 @@ function ResetPasswordPage() {
 						</div>
 
 						<div className="form-group">
-							<label htmlFor="confirmPassword">Confirm password</label>
+							<label htmlFor="confirmPassword">Valider le mot de passe</label>
 							<input
 								id="confirmPassword"
 								type="password"
 								className="form-input"
-								placeholder="Confirm new password"
+								placeholder="Confirmez le mot de passe"
 								value={confirmPassword}
 								onChange={(e) => setConfirmPassword(e.target.value)}
 								required
@@ -107,14 +107,14 @@ function ResetPasswordPage() {
 						{error && <div className="error-message">{error}</div>}
 
 						<button type="submit" className="auth-button" disabled={loading}>
-							{loading ? 'Resetting...' : 'Reset password'}
+							{loading ? 'Réinitialisation…' : 'Réinitialiser'}
 						</button>
 					</form>
 
 					<p className="auth-footer">
-						Back to{' '}
+						Retour à la{' '}
 						<Link to="/login" className="auth-link">
-							Sign in
+							connexion
 						</Link>
 					</p>
 				</div>

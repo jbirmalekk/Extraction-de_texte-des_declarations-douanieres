@@ -15,9 +15,18 @@ import DashboardPage from './pages/DashboardPage';
 import HistoryPage from './pages/HistoryPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import DocumentDetailPage from './pages/DocumentDetailPage';
+import InvoiceDetailPage from './pages/InvoiceDetailPage';
 import OcrResultPage from './pages/OcrResultPage';
+import InvoiceOcrResultPage from './pages/InvoiceOcrResultPage';
+import BatchResultsPage from './pages/BatchResultsPage';
 import ValidationPage from './pages/ValidationPage';
+import InvoiceValidationPage from './pages/InvoiceValidationPage';
+import CrossVerificationPage from './pages/CrossVerificationPage';
 import ErpSuccessPage from './pages/ErpSuccessPage';
+import ReportsPage from './pages/ReportsPage';
+import ReportDetailPage from './pages/ReportDetailPage';
 
 const router = createBrowserRouter([
   {
@@ -33,6 +42,30 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/dashboard',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboardPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'documents/:documentId',
+        element: (
+          <ProtectedRoute>
+            <DocumentDetailPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'invoices/:invoiceId',
+        element: (
+          <ProtectedRoute>
+            <InvoiceDetailPage />
           </ProtectedRoute>
         ),
       },
@@ -53,10 +86,42 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: 'invoice-ocr-result',
+        element: (
+          <ProtectedRoute>
+            <InvoiceOcrResultPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'batch-results',
+        element: (
+          <ProtectedRoute>
+            <BatchResultsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: 'validation',
         element: (
           <ProtectedRoute>
             <ValidationPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'invoice-validation',
+        element: (
+          <ProtectedRoute>
+            <InvoiceValidationPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'cross-verification',
+        element: (
+          <ProtectedRoute>
+            <CrossVerificationPage />
           </ProtectedRoute>
         ),
       },
@@ -69,9 +134,25 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: 'reports',
+        element: (
+          <ProtectedRoute>
+            <ReportsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'reports/:invoiceId',
+        element: (
+          <ProtectedRoute>
+            <ReportDetailPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: 'history',
         element: (
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute>
             <HistoryPage />
           </ProtectedRoute>
         ),

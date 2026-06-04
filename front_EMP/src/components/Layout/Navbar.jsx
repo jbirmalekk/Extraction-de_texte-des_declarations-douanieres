@@ -5,20 +5,23 @@ import { useAuth } from '../../hooks/useAuth';
 
 const publicLinks = [
 	{ type: 'route', to: '/', label: 'Accueil' },
-	{ type: 'hash', href: '/#details', label: 'Detail' },
+	{ type: 'hash', href: '/#details', label: 'Détails' },
 	{ type: 'hash', href: '/#contact', label: 'Contact' },
 ];
 
 const privateLinks = [
-	{ type: 'route', to: '/dashboard', label: 'Dashboard' },
-	{ type: 'hash', href: '/#details', label: 'Detail' },
+	{ type: 'route', to: '/dashboard', label: 'Tableau de bord' },
+	{ type: 'hash', href: '/#details', label: 'Détails' },
 	{ type: 'hash', href: '/#contact', label: 'Contact' },
 ];
 
 function Navbar() {
 	const { isAuthenticated, user, logout } = useAuth();
 	const location = useLocation();
-	const links = isAuthenticated ? privateLinks : publicLinks;
+	const dashboardLink = user?.role === 'admin' ? '/admin/dashboard' : '/dashboard';
+	const links = isAuthenticated
+		? privateLinks.map((link) => (link.to === '/dashboard' ? { ...link, to: dashboardLink } : link))
+		: publicLinks;
 	const roleLabel = user?.role === 'admin' ? 'Administrateur' : 'Utilisateur';
 	const RoleIcon = user?.role === 'admin' ? ShieldCheck : UserIcon;
 
@@ -38,7 +41,7 @@ function Navbar() {
 				<img src={empLogo} alt="EMP" className="navbar-logo" />
 				<div>
 					<p className="navbar-title">EMP SmartOCR</p>
-					<p className="navbar-tagline">Automate customs intelligence</p>
+					<p className="navbar-tagline">Intelligence douanière automatisée</p>
 				</div>
 			</div>
 			<nav className="navbar-links">
@@ -74,11 +77,11 @@ function Navbar() {
 						</span>
 						<span className="user-email">{user?.email || 'user@example.com'}</span>
 						<NavLink to="/login" className="login-btn" title="Se connecter avec un autre compte">
-							Login
+							Connexion
 						</NavLink>
 						<button className="logout-btn" onClick={handleLogout}>
 							<LogOut size={16} />
-							Logout
+							Déconnexion
 						</button>
 					</>
 				) : (

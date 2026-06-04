@@ -1,0 +1,102 @@
+.workflow-breadcrumb {
+	margin: 0 0 1rem;
+}
+
+.workflow-breadcrumb ol {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem 0.5rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	font-size: 0.82rem;
+}
+
+.workflow-breadcrumb li {
+	display: inline-flex;
+	align-items: center;
+	color: #94a3b8;
+	font-weight: 600;
+}
+
+.workflow-breadcrumb li:not(:last-child)::after {
+	content: '›';
+	margin-left: 0.5rem;
+	color: #cbd5e1;
+}
+
+.workflow-breadcrumb a {
+	color: #1d4ed8;
+	text-decoration: none;
+}
+
+.workflow-breadcrumb a:hover {
+	text-decoration: underline;
+}
+
+.workflow-breadcrumb li.is-current {
+	color: #0f172a;
+}
+
+.workflow-breadcrumb li.is-current a {
+	font-weight: 800;
+}
+
+.workflow-breadcrumb li.is-past a {
+	color: #475569;
+}
+
+.validation-workflow-steps {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin: 0 0 1rem;
+}
+
+.validation-workflow-step {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	padding: 0.45rem 0.75rem;
+	border-radius: 10px;
+	border: 1px solid rgba(148, 163, 184, 0.35);
+	background: #f8fafc;
+	font-size: 0.8rem;
+	font-weight: 600;
+	color: #64748b;
+}
+
+.validation-workflow-step.done {
+	border-color: rgba(22, 163, 74, 0.35);
+	background: #f0fdf4;
+	color: #15803d;
+}
+
+.validation-workflow-step.active {
+	border-color: rgba(37, 99, 235, 0.45);
+	background: #eff6ff;
+	color: #1d4ed8;
+}
+
+.validation-workflow-step-num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.35rem;
+	height: 1.35rem;
+	border-radius: 999px;
+	background: currentColor;
+	color: #fff;
+	font-size: 0.72rem;
+	font-weight: 800;
+}
+
+.validation-workflow-step.done .validation-workflow-step-num,
+.validation-workflow-step.active .validation-workflow-step-num {
+	background: #1d4ed8;
+}
+
+.validation-workflow-step.done .validation-workflow-step-num {
+	background: #16a34a;
+}

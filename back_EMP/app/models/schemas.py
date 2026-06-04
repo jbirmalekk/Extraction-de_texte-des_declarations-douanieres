@@ -121,6 +121,10 @@ class OCRValidationSchema(BaseModel):
 
 
 # ── Réponse de l'API après sauvegarde ────────────────────────
+class BulkDeleteIdsSchema(BaseModel):
+    ids: list[int]
+
+
 class DocumentResponseSchema(BaseModel):
     id                       : int
     fichier                  : Optional[str] = None

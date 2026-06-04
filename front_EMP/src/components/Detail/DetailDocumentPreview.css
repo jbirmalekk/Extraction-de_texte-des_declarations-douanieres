@@ -1,0 +1,76 @@
+.detail-doc-preview {
+	margin-bottom: 1rem;
+}
+
+.detail-doc-preview-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.75rem;
+	flex-wrap: wrap;
+	margin-bottom: 0.75rem;
+}
+
+.detail-doc-preview-head h2 {
+	margin: 0;
+	font-size: 1.05rem;
+}
+
+.detail-doc-preview-controls {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.detail-doc-preview-controls button {
+	border: 1px solid rgba(148, 163, 184, 0.4);
+	background: #fff;
+	border-radius: 8px;
+	padding: 0.35rem 0.5rem;
+	cursor: pointer;
+}
+
+.detail-doc-preview-viewport {
+	min-height: 220px;
+	max-height: 420px;
+	overflow: auto;
+	border: 1px solid rgba(148, 163, 184, 0.28);
+	border-radius: 12px;
+	background: #f8fafc;
+	display: flex;
+	justify-content: center;
+	padding: 0.5rem;
+}
+
+.detail-doc-preview-inner {
+	margin: 0 auto;
+}
+
+.detail-doc-preview-pdf {
+	width: 100%;
+	min-height: 360px;
+	border: none;
+	border-radius: 8px;
+}
+
+.detail-doc-preview-img {
+	width: 100%;
+	height: auto;
+	display: block;
+	border-radius: 8px;
+}
+
+.detail-doc-preview-empty {
+	text-align: center;
+	padding: 2rem 1rem;
+	color: #64748b;
+}
+
+.detail-doc-preview-empty p {
+	margin: 0.35rem 0 0;
+}
+
+.detail-doc-preview-hint {
+	font-size: 0.82rem;
+	color: #94a3b8;
+}

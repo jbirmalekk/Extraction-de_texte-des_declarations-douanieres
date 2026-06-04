@@ -3,6 +3,7 @@ import {
 	AlertTriangle,
 	CheckCircle2,
 	FileText,
+	GitCompare,
 	Pencil,
 	Plus,
 	RotateCw,
@@ -11,11 +12,22 @@ import {
 	ZoomIn,
 	ZoomOut,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import WorkflowBreadcrumb from '../components/Workflow/WorkflowBreadcrumb';
 import { fetchLatestOcrCorrections, validateOcrDocument } from '../services/ocrService';
+import { useValidationDraft } from '../hooks/useValidationDraft';
 import { buildBackendValidationPayload } from '../utils/ocrFields';
+import { snapshotPreview } from '../utils/compareDocumentPreview';
+import { saveCrossVerificationSession } from '../utils/crossVerificationSession';
+import { buildGroupedFilteredFields } from '../utils/validationFieldFilters';
+import {
+	hydrateDumContextFromApi,
+	syncDumLatestFromValidationPayload,
+} from '../utils/documentContextStorage';
+import { useDocumentFilePreview } from '../hooks/useDocumentFilePreview';
 import { useAuth } from '../hooks/useAuth';
 import './ValidationPage.css';
+import '../components/Workflow/WorkflowBreadcrumb.css';
 
 const NON_EDITABLE_SECTIONS = new Set(['Listes', 'Qualite OCR', 'Metadonnees']);
 
@@ -137,42 +149,131 @@ const mergeBackendCorrectionsIntoFields = (fields, latestCorrections) =>
 		};
 	});
 
+const resolveRouteDocumentId = (location, searchParams) => {
+	const fromState = Number(location.state?.documentId);
+	if (Number.isFinite(fromState) && fromState > 0) {
+		return fromState;
+	}
+	const fromQuery = Number(searchParams.get('documentId'));
+	if (Number.isFinite(fromQuery) && fromQuery > 0) {
+		return fromQuery;
+	}
+	return null;
+};
+
 function ValidationPage() {
 	const navigate = useNavigate();
+	const location = useLocation();
+	const [searchParams] = useSearchParams();
 	const { user } = useAuth();
+	const routeDocumentId = resolveRouteDocumentId(location, searchParams);
+	const queryDocumentId = searchParams.get('documentId');
 	const [payload, setPayload] = useState(null);
+	const [initLoading, setInitLoading] = useState(false);
+	const [initError, setInitError] = useState('');
+	const [resolvedDocumentId, setResolvedDocumentId] = useState(routeDocumentId);
+
+	useEffect(() => {
+		if (routeDocumentId != null) {
+			setResolvedDocumentId(routeDocumentId);
+		}
+	}, [routeDocumentId]);
 	const [fields, setFields] = useState([]);
 	const [toast, setToast] = useState(null);
 	const [isFinalValidating, setIsFinalValidating] = useState(false);
+	const [isCrossVerifying, setIsCrossVerifying] = useState(false);
 	const [zoom, setZoom] = useState(100);
 	const [rotation, setRotation] = useState(0);
+	const [showOnlyNeedsCorrection, setShowOnlyNeedsCorrection] = useState(false);
+	const [fieldSortBy, setFieldSortBy] = useState('section');
 	const timeoutRef = useRef(null);
 
 	useEffect(() => {
 		let isActive = true;
-		const savedPayload = safeJsonParse(localStorage.getItem('ocr_validation_payload'), null);
-		setPayload(savedPayload);
-		setFields(buildValidationFieldsFromPayload(savedPayload));
 
-		const hydrateBackendCorrections = async () => {
-			if (!savedPayload?.backendId) {
-				return;
+		const init = async () => {
+			setInitError('');
+			const targetId = resolveRouteDocumentId(location, searchParams);
+			if (targetId != null) {
+				setInitLoading(true);
 			}
 
 			try {
-				const response = await fetchLatestOcrCorrections(savedPayload.backendId);
-				const latestCorrections = response?.latest_corrections || {};
-				if (!isActive || Object.keys(latestCorrections).length === 0) {
+				if (targetId != null) {
+					setResolvedDocumentId(targetId);
+				}
+
+				let savedPayload = safeJsonParse(localStorage.getItem('ocr_validation_payload'), null);
+				const payloadId = Number(savedPayload?.backendId);
+				const fromHistory = Boolean(location.state?.fromHistory);
+				const shouldHydrate =
+					targetId != null &&
+					(fromHistory ||
+						!savedPayload ||
+						!Number.isFinite(payloadId) ||
+						payloadId <= 0 ||
+						Number(payloadId) !== Number(targetId) ||
+						!savedPayload?.source?.dataUrl);
+
+				if (shouldHydrate) {
+					try {
+						await hydrateDumContextFromApi(targetId);
+						if (!isActive) {
+							return;
+						}
+						savedPayload = safeJsonParse(localStorage.getItem('ocr_validation_payload'), null);
+					} catch (error) {
+						const detail = error?.response?.data?.detail;
+						const message =
+							typeof detail === 'string'
+								? detail
+								: 'Impossible de charger ce document pour la validation.';
+						if (isActive) {
+							setInitError(message);
+						}
+					}
+				}
+
+				if (!isActive) {
 					return;
 				}
 
-				setFields((prev) => mergeBackendCorrectionsIntoFields(prev, latestCorrections));
-			} catch (_error) {
-				// Keep local experience even if history hydration fails.
+				if (
+					savedPayload?.source?.dataUrl &&
+					targetId != null &&
+					Number(savedPayload?.backendId) !== Number(targetId)
+				) {
+					const { dataUrl: _drop, ...sourceMeta } = savedPayload.source;
+					savedPayload = { ...savedPayload, source: sourceMeta };
+				}
+
+				const resolvedId = Number(targetId ?? savedPayload?.backendId);
+				if (Number.isFinite(resolvedId) && resolvedId > 0) {
+					setResolvedDocumentId(resolvedId);
+				}
+
+				setPayload(savedPayload);
+				setFields(buildValidationFieldsFromPayload(savedPayload));
+
+				if (savedPayload?.backendId) {
+					try {
+						const response = await fetchLatestOcrCorrections(savedPayload.backendId);
+						const latestCorrections = response?.latest_corrections || {};
+						if (isActive && Object.keys(latestCorrections).length > 0) {
+							setFields((prev) => mergeBackendCorrectionsIntoFields(prev, latestCorrections));
+						}
+					} catch {
+						// Garder les champs locaux si l'historique des corrections est indisponible.
+					}
+				}
+			} finally {
+				if (isActive) {
+					setInitLoading(false);
+				}
 			}
 		};
 
-		hydrateBackendCorrections();
+		init();
 
 		return () => {
 			isActive = false;
@@ -180,7 +281,9 @@ function ValidationPage() {
 				window.clearTimeout(timeoutRef.current);
 			}
 		};
-	}, []);
+	}, [location.key, location.state?.documentId, queryDocumentId]);
+
+	const previewEntityId = resolvedDocumentId ?? payload?.backendId ?? null;
 
 	const showToast = (type, message) => {
 		setToast({ type, message });
@@ -190,34 +293,46 @@ function ValidationPage() {
 		timeoutRef.current = window.setTimeout(() => setToast(null), 2800);
 	};
 
-	const preview = useMemo(() => {
-		if (payload?.source?.dataUrl) {
-			return payload.source;
-		}
-		return safeJsonParse(localStorage.getItem('ocr_uploaded_document'), null);
-	}, [payload]);
+	const { preview, loading: previewLoading, error: previewError, reload: reloadPreview } = useDocumentFilePreview({
+		kind: 'dum',
+		entityId: previewEntityId,
+		payloadSource: payload?.source,
+		fileName: payload?.source?.name || payload?.rawResult?.fichier,
+		contentType: payload?.source?.type,
+		sourceFileAvailable: payload?.rawResult?.has_source_file,
+	});
 
-	const isPdf = Boolean(preview?.type?.toLowerCase().includes('pdf'));
+	const handlePreviewMediaError = () => {
+		reloadPreview();
+	};
 
-	const groupedFields = useMemo(() => {
-		const groups = new Map();
-		fields.forEach((field) => {
-			const sectionName = field?.section || 'Autres';
-			if (NON_EDITABLE_SECTIONS.has(sectionName)) {
-				return;
-			}
-			if (!groups.has(sectionName)) {
-				groups.set(sectionName, []);
-			}
-			groups.get(sectionName).push(field);
-		});
-		return Array.from(groups.entries());
-	}, [fields]);
+	const displayPreview = preview?.dataUrl ? preview : null;
+
+	const isPdf = Boolean(displayPreview?.type?.toLowerCase().includes('pdf'));
 
 	const modifiedCount = Object.keys(buildModifiedMap(fields)).length;
 	const emptyFieldsCount = fields.filter((field) => !String(field?.value ?? '').trim()).length;
 	const lowConfidenceCount = fields.filter((field) => typeof field.confidence === 'number' && field.confidence < 80).length;
 	const hasValidationPayload = Boolean(payload) && fields.length > 0;
+
+	const groupedFields = useMemo(
+		() =>
+			buildGroupedFilteredFields(fields, {
+				showOnlyNeedsCorrection,
+				sortBy: fieldSortBy,
+				excludeSections: NON_EDITABLE_SECTIONS,
+			}),
+		[fields, showOnlyNeedsCorrection, fieldSortBy]
+	);
+
+	const { isDirty, lastSavedLabel, autoSaving, persistDraft, markDraftSaved } = useValidationDraft({
+		storageKey: 'ocr_validation_payload',
+		fields,
+		payload,
+		setPayload,
+		buildModifiedMap,
+		enabled: hasValidationPayload,
+	});
 	const hasBackendLink = Boolean(payload?.backendId);
 	const documentLabel = payload?.documentId ?? payload?.backendId ?? 'Document';
 	const connectionLabel = hasBackendLink ? `Backend ${payload?.backendId}` : 'Mode local';
@@ -243,6 +358,12 @@ function ValidationPage() {
 	};
 
 	const handleResetForm = () => {
+		const confirmed = window.confirm(
+			'Réinitialiser tous les champs aux valeurs OCR d\'origine ?'
+		);
+		if (!confirmed) {
+			return;
+		}
 		setFields((prev) =>
 			prev.map((field) => ({
 				...field,
@@ -255,20 +376,41 @@ function ValidationPage() {
 				backendActionType: null,
 			}))
 		);
-		showToast('info', 'Formulaire reinitialise aux donnees OCR originales.');
+		markDraftSaved();
+		showToast('info', 'Formulaire réinitialisé aux données OCR d\'origine.');
 	};
 
 	const handleSaveChanges = () => {
+		if (persistDraft()) {
+			markDraftSaved();
+			showToast('success', 'Brouillon enregistré localement.');
+		}
+	};
+
+	const persistDumToBackend = async (statut = 'valide') => {
+		if (!hasBackendLink) {
+			throw new Error('Validation backend impossible: backendId manquant. Recommencez depuis Import/OCR.');
+		}
+		const backendPayload = buildBackendValidationPayload(fields, payload.backendId, statut);
+		await validateOcrDocument(payload.backendId, backendPayload);
+
 		const modifiedFields = buildModifiedMap(fields);
-		const updatedPayload = {
+		const finalAudit = {
 			...(payload || {}),
 			fields,
 			modifiedFields,
-			savedAt: new Date().toISOString(),
+			validatedAt: new Date().toISOString(),
 		};
-		setPayload(updatedPayload);
-		localStorage.setItem('ocr_validation_payload', JSON.stringify(updatedPayload));
-		showToast('success', 'Modifications sauvegardees.');
+		localStorage.setItem('ocr_last_validated', JSON.stringify(finalAudit));
+		localStorage.setItem(
+			'ocr_latest_result',
+			JSON.stringify({
+				...finalAudit,
+				backendId: payload.backendId,
+				savedAt: finalAudit.validatedAt,
+			})
+		);
+		return finalAudit;
 	};
 
 	const handleFinalValidate = async () => {
@@ -277,33 +419,78 @@ function ValidationPage() {
 			return;
 		}
 
-		if (isFinalValidating) {
+		if (isFinalValidating || isCrossVerifying) {
 			return;
 		}
 
 		setIsFinalValidating(true);
 		try {
-			if (payload?.backendId) {
-				const backendPayload = buildBackendValidationPayload(fields, payload.backendId, 'valide');
-				await validateOcrDocument(payload.backendId, backendPayload);
-			}
-
-			const modifiedFields = buildModifiedMap(fields);
-			const finalAudit = {
-				...(payload || {}),
-				fields,
-				modifiedFields,
-				validatedAt: new Date().toISOString(),
-			};
-			localStorage.setItem('ocr_last_validated', JSON.stringify(finalAudit));
-			showToast('success', 'Document valide avec succes ! Pret pour l\'exportation ERP.');
+			await persistDumToBackend('valide');
+			showToast('success', 'Document validé avec succès ! Prêt pour l\'exportation ERP.');
 
 			timeoutRef.current = window.setTimeout(() => {
 				navigate('/erp-success');
 			}, 1500);
 		} catch (error) {
-			showToast('error', error?.response?.data?.detail || 'Validation finale echouee, veuillez reessayer.');
+			showToast('error', error?.response?.data?.detail || error?.message || 'Validation finale echouee, veuillez reessayer.');
 			setIsFinalValidating(false);
+		}
+	};
+
+	const goToOcrResults = async () => {
+		await syncDumLatestFromValidationPayload();
+		const docId = payload?.backendId;
+		navigate(docId ? `/ocr-result?documentId=${docId}` : '/ocr-result');
+	};
+
+	const handleCancel = () => {
+		if (isFinalValidating || isCrossVerifying) {
+			return;
+		}
+		if (modifiedCount > 0) {
+			const confirmed = window.confirm(
+				'Annuler la validation ? Les modifications non enregistrées seront perdues.'
+			);
+			if (!confirmed) {
+				return;
+			}
+		}
+		goToOcrResults();
+	};
+
+	const handleCrossVerification = async () => {
+		if (!hasBackendLink) {
+			showToast('error', 'Enregistrement impossible: backendId manquant.');
+			return;
+		}
+		if (isFinalValidating || isCrossVerifying) {
+			return;
+		}
+
+		setIsCrossVerifying(true);
+		try {
+			await persistDumToBackend('valide');
+			const declField = fields.find((f) => f.key === 'numero_declaration');
+			const dateField = fields.find((f) => f.key === 'date_declaration');
+			saveCrossVerificationSession({
+				sourceType: 'dum',
+				sourceId: payload.backendId,
+				sourceNumero: declField?.value || null,
+				sourceDate: dateField?.value || null,
+				sourceLabel: declField?.value || null,
+				sourceFileName: payload?.documentId || displayPreview?.name || `DUM_${payload.backendId}.pdf`,
+				sourcePreview: snapshotPreview(displayPreview || payload?.source),
+				dumDocumentId: payload.backendId,
+				dumPreview: snapshotPreview(displayPreview || payload?.source),
+			});
+			showToast('success', 'DUM enregistrée. Choisissez la facture à comparer.');
+			navigate('/cross-verification');
+		} catch (error) {
+			showToast(
+				'error',
+				error?.response?.data?.detail || error?.message || 'Enregistrement echoue.'
+			);
+			setIsCrossVerifying(false);
 		}
 	};
 
@@ -376,16 +563,21 @@ function ValidationPage() {
 						<span>Date</span>
 						{field.modifiedAt || '—'}
 					</p>
-					{field.backendOldValue !== null || field.backendNewValue !== null ? (
-						<p>
-							<span>Correction backend</span>
-							{String(field.backendOldValue ?? '—')} → {String(field.backendNewValue ?? '—')}
-						</p>
-					) : null}
+					
 				</div>
 			</div>
 		);
 	};
+
+	if (initLoading) {
+		return (
+			<div className="validation-page fade-up">
+				<section className="validation-card validation-empty-card">
+					<p>Chargement du document…</p>
+				</section>
+			</div>
+		);
+	}
 
 	if (!hasValidationPayload) {
 		return (
@@ -406,12 +598,15 @@ function ValidationPage() {
 					<AlertTriangle size={32} />
 					<h2>Aucun formulaire a valider</h2>
 					<p>
-						Le payload de validation est vide ou a ete perdu. Retournez a la page resultats OCR
-						puis relancez la validation depuis ce document.
+						{initError ||
+							'Le payload de validation est vide ou a ete perdu. Retournez a la page resultats OCR puis relancez la validation depuis ce document.'}
 					</p>
-					<Link to="/ocr-result" className="history-link-btn">
-						Retour aux resultats OCR
-					</Link>
+					<button type="button" className="history-link-btn" onClick={() => navigate('/history')}>
+						Retour à l&apos;historique
+					</button>
+					<button type="button" className="history-link-btn" onClick={goToOcrResults}>
+						Résultats OCR
+					</button>
 				</section>
 			</div>
 		);
@@ -421,20 +616,40 @@ function ValidationPage() {
 		<div className="validation-page fade-up">
 			{toast ? <div className={`validation-toast ${toast.type}`}>{toast.message}</div> : null}
 
+			<WorkflowBreadcrumb
+				workflow="dum"
+				current="validation"
+				stepToOverrides={{
+					ocr: payload?.backendId
+						? `/ocr-result?documentId=${payload.backendId}`
+						: '/ocr-result',
+				}}
+			/>
+
 			<section className="validation-header-shell">
 				<div className="validation-brand-wrap">
 					<div className="validation-brand-mark">EMP</div>
 					<div>
-						<p className="validation-kicker">Validation OCR</p>
-						<h1>Controle et correction avant export ERP</h1>
+						<p className="validation-kicker">Validation DUM</p>
+						<h1>Contrôle et correction avant export ERP</h1>
 						<p>
-							Le formulaire suit la structure de la page resultat et met en avant les champs a corriger.
+							Le formulaire suit la structure de la page résultat et met en avant les champs à corriger.
 						</p>
 					</div>
 				</div>
-				<span className="validation-doc-badge">
-					{documentLabel} · {connectionLabel}
-				</span>
+				<div className="validation-header-meta">
+					<span className="validation-doc-badge">
+						{documentLabel} · {connectionLabel}
+					</span>
+					{isDirty ? (
+						<span className="validation-draft-badge is-unsaved">Non enregistré</span>
+					) : (
+						<span className="validation-draft-badge is-saved">
+							Brouillon enregistré{lastSavedLabel ? ` · ${lastSavedLabel}` : ''}
+							{autoSaving ? ' (auto…)' : ''}
+						</span>
+					)}
+				</div>
 			</section>
 
 			<div className="validation-layout-grid">
@@ -443,11 +658,11 @@ function ValidationPage() {
 						<div className="preview-card-head">
 							<h2>Apercu du document</h2>
 							<div className="preview-controls">
-								<button type="button" onClick={decreaseZoom} disabled={zoom <= 50} aria-label="Zoom out">
+								<button type="button" onClick={decreaseZoom} disabled={zoom <= 50} aria-label="Dézoomer">
 									<ZoomOut size={16} />
 								</button>
 								<span>{zoom}%</span>
-								<button type="button" onClick={increaseZoom} disabled={zoom >= 200} aria-label="Zoom in">
+								<button type="button" onClick={increaseZoom} disabled={zoom >= 200} aria-label="Zoomer">
 									<ZoomIn size={16} />
 								</button>
 								<button type="button" onClick={rotateDocument} aria-label="Rotate">
@@ -457,20 +672,40 @@ function ValidationPage() {
 						</div>
 
 						<div className="preview-viewport" onWheel={handlePreviewWheel}>
-							<div
-								className="preview-transform-layer"
-								style={{ transform: `scale(${zoom / 100}) rotate(${rotation}deg)` }}
-							>
-								{preview?.dataUrl ? (
+							<div className="preview-transform-layer">
+								{displayPreview?.dataUrl ? (
 									isPdf ? (
-										<iframe title="Document PDF" src={preview.dataUrl} className="preview-pdf" />
+										<iframe
+											title="Document PDF"
+											src={displayPreview.dataUrl}
+											className="preview-pdf"
+											style={{ width: `${zoom}%` }}
+											onError={handlePreviewMediaError}
+										/>
 									) : (
-										<img src={preview.dataUrl} alt="Document" className="preview-image" />
+										<img
+											src={displayPreview.dataUrl}
+											alt="Document"
+											className="preview-image"
+											style={{
+												width: `${zoom}%`,
+												transform: rotation ? `rotate(${rotation}deg)` : undefined,
+												transformOrigin: 'center center',
+											}}
+											onError={handlePreviewMediaError}
+										/>
 									)
 								) : (
 									<div className="preview-placeholder">
 										<FileText size={52} />
-										<p>Apercu du document</p>
+										<p>
+											{previewLoading
+												? 'Chargement de l\u2019aperçu depuis la GED…'
+												: 'Apercu du document'}
+										</p>
+										{previewError ? (
+											<p className="preview-placeholder-error">{previewError}</p>
+										) : null}
 									</div>
 								)}
 							</div>
@@ -484,7 +719,7 @@ function ValidationPage() {
 					<div className="validation-card smart-form-card">
 						<div className="smart-form-head">
 							<div>
-								<h2>Formulaire de validation OCR</h2>
+								<h2>Formulaire de validation DUM</h2>
 								<p>
 									Le rendu suit la page resultat, avec les champs empiles par section pour rendre les
 									corrections plus lisibles.
@@ -498,9 +733,31 @@ function ValidationPage() {
 							<p>
 								{emptyFieldsCount > 0
 									? `${emptyFieldsCount} champ(s) sont vides.`
-									: 'Tous les champs editables contiennent deja une valeur.'}
+									: 'Tous les champs éditables contiennent déjà une valeur.'}
 								{lowConfidenceCount > 0 ? ` ${lowConfidenceCount} champ(s) ont une confiance faible.` : ''}
 							</p>
+						</div>
+
+						<div className="validation-filters-row">
+							<label className="validation-filter-check">
+								<input
+									type="checkbox"
+									checked={showOnlyNeedsCorrection}
+									onChange={(e) => setShowOnlyNeedsCorrection(e.target.checked)}
+								/>
+								Afficher seulement les champs à corriger
+							</label>
+							<label className="validation-filter-sort">
+								<span>Trier par</span>
+								<select
+									value={fieldSortBy}
+									onChange={(e) => setFieldSortBy(e.target.value)}
+								>
+									<option value="section">Section</option>
+									<option value="confidence-asc">Confiance (croissant)</option>
+									<option value="confidence-desc">Confiance (décroissant)</option>
+								</select>
+							</label>
 						</div>
 
 						<div className="validation-field-list">
@@ -520,32 +777,80 @@ function ValidationPage() {
 						</div>
 
 						<div className="validation-actions-row">
-							<button type="button" className="action-btn reset" onClick={handleResetForm}>
-								↻ Reset Form
-							</button>
-							<button type="button" className="action-btn save" onClick={handleSaveChanges}>
-								<Save size={16} />
-								Save Changes
-							</button>
-							<button
-								type="button"
-								className="action-btn final"
-								onClick={handleFinalValidate}
-								disabled={isFinalValidating || !hasBackendLink}
-								title={
-									!hasBackendLink ? 'Validation backend indisponible sans backendId.' : undefined
-								}
-							>
-								<CheckCircle2 size={16} className={isFinalValidating ? 'pulse-check' : ''} />
-								{isFinalValidating ? 'Validation...' : '✓ Final Validate'}
-							</button>
+							<div className="validation-actions-secondary">
+								<button
+									type="button"
+									className="action-btn cancel"
+									onClick={handleCancel}
+									disabled={isFinalValidating || isCrossVerifying}
+									title="Quitter sans valider vers les résultats OCR"
+								>
+									Annuler
+								</button>
+								<button
+									type="button"
+									className="action-btn reset"
+									onClick={handleResetForm}
+									disabled={isFinalValidating || isCrossVerifying}
+									title="Restaurer les valeurs OCR d'origine"
+								>
+									<RotateCw size={16} />
+									Réinitialiser
+								</button>
+								<button
+									type="button"
+									className="action-btn save"
+									onClick={handleSaveChanges}
+									disabled={isFinalValidating || isCrossVerifying}
+									title="Enregistrer le brouillon dans le navigateur"
+								>
+									<Save size={16} />
+									Enregistrer brouillon
+								</button>
+							</div>
+							<div className="validation-actions-primary">
+								<button
+									type="button"
+									className="action-btn cross-verify"
+									onClick={handleCrossVerification}
+									disabled={isCrossVerifying || isFinalValidating || !hasBackendLink}
+									title={
+										!hasBackendLink
+											? 'Enregistrement backend indisponible sans backendId.'
+											: 'Enregistrer puis comparer avec une facture'
+									}
+								>
+									<GitCompare size={16} />
+									{isCrossVerifying ? 'Enregistrement…' : 'Vérification croisée'}
+								</button>
+								<button
+									type="button"
+									className="action-btn final"
+									onClick={handleFinalValidate}
+									disabled={isFinalValidating || isCrossVerifying || !hasBackendLink}
+									title={
+										!hasBackendLink ? 'Validation backend indisponible sans backendId.' : undefined
+									}
+								>
+									<CheckCircle2 size={16} className={isFinalValidating ? 'pulse-check' : ''} />
+									{isFinalValidating ? 'Validation…' : 'Valider DUM'}
+								</button>
+							</div>
 						</div>
+						<p className="validation-actions-help">
+							<strong>Annuler</strong> : quitter vers les résultats OCR.{' '}
+							<strong>Enregistrer brouillon</strong> : sauvegarde locale (auto toutes les 30 s si
+							modifications). <strong>Vérification croisée</strong> : enregistre puis ouvre la
+							réconciliation facture.
+						</p>
 					</div>
 				</section>
 			</div>
 
 			<div className="validation-footer-links">
-				<Link to="/ocr-result">Retour aux resultats OCR</Link>
+				<button type="button" className="text-link" onClick={goToOcrResults}>
+					Retour aux resultats déclaration DUM
+				</button>
 			</div>
 		</div>
 	);

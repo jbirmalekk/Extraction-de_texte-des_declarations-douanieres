@@ -1,20 +1,558 @@
-function HistoryPage() {
-  return (
-    <div className="history-page">
-      <section className="dashboard-hero modern">
-        <div>
-          <p className="hero-pill">Traçabilite</p>
-          <h1>Historique des traitements</h1>
-          <p className="subtitle">Suivez ici les imports, validations et statuts d&apos;integration.</p>
-        </div>
-      </section>
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+	ArrowRight,
+	Clock,
+	Download,
+	FileText,
+	GitCompare,
+	RefreshCw,
+	Receipt,
+	Search,
+	ShieldCheck,
+	Trash2,
+	Users,
+} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import {
+	deleteHistoryRows,
+	fetchUnifiedHistoryBatch,
+	HISTORY_BATCH_SIZE,
+} from '../services/historyService';
+import {
+	computeHistoryStats,
+	exportHistoryToCsv,
+	filterHistoryRows,
+	mergeHistoryRows,
+} from '../utils/historyUnified';
+import { saveCrossVerificationSession } from '../utils/crossVerificationSession';
+import {
+	hydrateDumContextFromApi,
+	hydrateInvoiceContextFromApi,
+} from '../utils/documentContextStorage';
+import './HistoryPage.css';
 
-      <section className="activities history-empty">
-        <h2>Historique bientot disponible</h2>
-        <p>La connexion aux donnees sera branchee dans la prochaine etape.</p>
-      </section>
-    </div>
-  );
+function HistoryPage() {
+	const navigate = useNavigate();
+	const { user } = useAuth();
+	const isAdmin = user?.role === 'admin';
+
+	const [dumHistory, setDumHistory] = useState([]);
+	const [invoiceItems, setInvoiceItems] = useState([]);
+	const [dumTotal, setDumTotal] = useState(0);
+	const [invoiceTotal, setInvoiceTotal] = useState(0);
+	const [ownerCount, setOwnerCount] = useState(0);
+	const [loading, setLoading] = useState(true);
+	const [loadingMore, setLoadingMore] = useState(false);
+	const [error, setError] = useState('');
+	const [search, setSearch] = useState('');
+	const [typeFilter, setTypeFilter] = useState('all');
+	const [statusFilter, setStatusFilter] = useState('all');
+	const [periodDays, setPeriodDays] = useState(0);
+	const [openingValidationId, setOpeningValidationId] = useState(null);
+	const [selectedIds, setSelectedIds] = useState(() => new Set());
+	const [deleting, setDeleting] = useState(false);
+
+	const allRows = useMemo(
+		() => mergeHistoryRows(dumHistory, invoiceItems),
+		[dumHistory, invoiceItems]
+	);
+
+	const hasMoreFromApi =
+		dumHistory.length < dumTotal || invoiceItems.length < invoiceTotal;
+
+	const loadHistory = useCallback(async () => {
+		setLoading(true);
+		setError('');
+		try {
+			const page = await fetchUnifiedHistoryBatch({
+				skip: 0,
+				limit: HISTORY_BATCH_SIZE,
+				type: 'all',
+			});
+			setDumHistory(page.dumHistory);
+			setInvoiceItems(page.invoiceItems);
+			setDumTotal(page.dumTotal);
+			setInvoiceTotal(page.invoiceTotal);
+			setOwnerCount(page.ownerCount);
+			if (page.invoiceSource === 'error' || page.invoiceSource === 'unavailable') {
+				setError(
+					'Historique DUM chargé. Les factures sont indisponibles — démarrez back_EMP_Fact (8001) et vérifiez INVOICE_API_URL dans back_EMP.'
+				);
+			}
+		} catch {
+			setError(
+				'Impossible de charger l’historique. Vérifiez que back_EMP (8000) et back_EMP_Fact (8001) sont démarrés.'
+			);
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	const loadMoreFromApi = async () => {
+		if (!hasMoreFromApi || loadingMore) {
+			return;
+		}
+		setLoadingMore(true);
+		try {
+			const skip = dumHistory.length + invoiceItems.length;
+			const page = await fetchUnifiedHistoryBatch({
+				skip,
+				limit: HISTORY_BATCH_SIZE,
+				type: 'all',
+			});
+			if (page.dumHistory.length) {
+				setDumHistory((prev) => [...prev, ...page.dumHistory]);
+				setDumTotal(page.dumTotal);
+			}
+			if (page.invoiceItems.length) {
+				setInvoiceItems((prev) => [...prev, ...page.invoiceItems]);
+				setInvoiceTotal(page.invoiceTotal);
+			}
+		} finally {
+			setLoadingMore(false);
+		}
+	};
+
+	useEffect(() => {
+		loadHistory();
+	}, [loadHistory]);
+
+	const filteredRows = useMemo(
+		() =>
+			filterHistoryRows(allRows, {
+				search: search.trim(),
+				type: typeFilter,
+				status: statusFilter,
+				periodDays,
+			}),
+		[allRows, search, typeFilter, statusFilter, periodDays]
+	);
+
+	const stats = useMemo(
+		() => computeHistoryStats(filteredRows, { isAdmin, ownerCount }),
+		[filteredRows, isAdmin, ownerCount]
+	);
+
+	const statCards = [
+		{ key: 'total', label: 'Total traitements', value: stats.total, icon: FileText, color: '#2563eb' },
+		{ key: 'validated', label: 'Validés / contrôlés', value: stats.validated, icon: ShieldCheck, color: '#16a34a' },
+		{ key: 'inProgress', label: 'En attente / cours', value: stats.inProgress, icon: Clock, color: '#f59e0b' },
+		{
+			key: 'recon',
+			label: 'Réconciliations',
+			value: `${stats.reconciledOk} OK · ${stats.reconciledWarn} écarts`,
+			icon: GitCompare,
+			color: '#0f766e',
+		},
+	];
+	if (isAdmin) {
+		statCards.push({
+			key: 'owners',
+			label: 'Utilisateurs',
+			value: stats.owners ?? ownerCount,
+			icon: Users,
+			color: '#7c3aed',
+		});
+	}
+
+	const handleExportCsv = () => {
+		const csv = exportHistoryToCsv(filteredRows);
+		const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `historique_emp_${new Date().toISOString().slice(0, 10)}.csv`;
+		a.click();
+		URL.revokeObjectURL(url);
+	};
+
+	const openValidation = async (row) => {
+		const rowKey = row.id;
+		setOpeningValidationId(rowKey);
+		setError('');
+		try {
+			if (row.type === 'dum') {
+				if (!row.dumId) {
+					setError('Identifiant DUM manquant pour ce document.');
+					return;
+				}
+				await hydrateDumContextFromApi(row.dumId);
+				navigate(`/validation?documentId=${row.dumId}`, {
+					state: { fromHistory: true, documentId: row.dumId },
+				});
+			} else {
+				if (!row.invoiceId) {
+					setError('Identifiant facture manquant pour ce document.');
+					return;
+				}
+				await hydrateInvoiceContextFromApi(row.invoiceId);
+				navigate(`/invoice-validation?invoiceId=${row.invoiceId}`, {
+					state: { fromHistory: true, invoiceId: row.invoiceId },
+				});
+			}
+		} catch (err) {
+			const detail = err?.response?.data?.detail;
+			setError(
+				typeof detail === 'string'
+					? detail
+					: 'Impossible de charger ce document pour la validation.'
+			);
+		} finally {
+			setOpeningValidationId(null);
+		}
+	};
+
+	const selectedCount = selectedIds.size;
+	const filteredSelectedCount = filteredRows.filter((r) => selectedIds.has(r.id)).length;
+	const allFilteredSelected =
+		filteredRows.length > 0 && filteredSelectedCount === filteredRows.length;
+
+	const toggleRowSelection = (rowId) => {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(rowId)) {
+				next.delete(rowId);
+			} else {
+				next.add(rowId);
+			}
+			return next;
+		});
+	};
+
+	const toggleSelectAllFiltered = () => {
+		if (allFilteredSelected) {
+			setSelectedIds((prev) => {
+				const next = new Set(prev);
+				for (const row of filteredRows) {
+					next.delete(row.id);
+				}
+				return next;
+			});
+			return;
+		}
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			for (const row of filteredRows) {
+				next.add(row.id);
+			}
+			return next;
+		});
+	};
+
+	const handleDeleteSelected = async () => {
+		const rowsToDelete = filteredRows.filter((r) => selectedIds.has(r.id));
+		if (!rowsToDelete.length) {
+			return;
+		}
+		const label = rowsToDelete.length === 1 ? 'cet enregistrement' : `${rowsToDelete.length} enregistrements`;
+		if (
+			!window.confirm(
+				`Supprimer définitivement ${label} ?\n\nLes fichiers locaux et les données en base seront effacés. Action irréversible.`
+			)
+		) {
+			return;
+		}
+		setDeleting(true);
+		setError('');
+		try {
+			const result = await deleteHistoryRows(rowsToDelete, user);
+			const failed =
+				(result.dum?.failed?.length || 0) + (result.invoice?.failed?.length || 0);
+			const deleted =
+				(result.dum?.deleted?.length || 0) + (result.invoice?.deleted?.length || 0);
+			setSelectedIds(new Set());
+			await loadHistory();
+			if (failed > 0 && deleted > 0) {
+				setError(`${deleted} supprimé(s), ${failed} refusé(s) ou introuvable(s).`);
+			} else if (failed > 0) {
+				setError('Aucune suppression effectuée (accès refusé ou introuvable).');
+			}
+		} catch {
+			setError('Échec de la suppression. Vérifiez les serveurs (8000 / 8001).');
+		} finally {
+			setDeleting(false);
+		}
+	};
+
+	const startCrossVerify = (row) => {
+		if (row.type === 'dum') {
+			saveCrossVerificationSession({
+				sourceType: 'dum',
+				sourceId: row.dumId,
+				sourceNumero: row.reference,
+				sourceDate: row.declarationDate || null,
+				sourceLabel: row.reference,
+				sourceFileName: row.fileName || row.reference,
+			});
+		} else {
+			saveCrossVerificationSession({
+				sourceType: 'invoice',
+				sourceId: row.invoiceId,
+				sourceNumero: row.reference,
+				sourceDate: row.invoiceDate || null,
+				sourceLabel: row.reference,
+				sourceFileName: row.fileName || row.reference,
+			});
+		}
+		navigate('/cross-verification');
+	};
+
+	return (
+		<div className="history-page history-page--unified">
+			<section className="dashboard-hero modern history-hero">
+				<div>
+					<p className="hero-pill">Traçabilité</p>
+					<h1>{isAdmin ? 'Historique DUM & factures' : 'Mon historique'}</h1>
+					<p className="subtitle">
+						Vue unifiée des déclarations et factures : statuts, réconciliation, corrections et accès
+						rapides.
+					</p>
+				</div>
+			</section>
+
+			{error ? (
+				<section className="activities history-empty">
+					<p>{error}</p>
+					<button type="button" className="history-btn ghost" onClick={loadHistory}>
+						Réessayer
+					</button>
+				</section>
+			) : null}
+
+			<section className="stats-grid history-stats-grid">
+				{statCards.map(({ key, label, value, icon: Icon, color }) => (
+					<div key={key} className="stat-card">
+						<div className="stat-icon" style={{ color, backgroundColor: `${color}15` }}>
+							<Icon size={20} />
+						</div>
+						<div>
+							<p className="stat-label">{label}</p>
+							<p className="stat-value">{loading ? '…' : value}</p>
+						</div>
+					</div>
+				))}
+			</section>
+
+			<section className="history-filters-card">
+				<div className="history-search-wrap">
+					<Search size={18} />
+					<input
+						type="search"
+						placeholder="Rechercher n° déclaration, facture, fichier…"
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+					/>
+				</div>
+				<div className="history-filters-row">
+					<label>
+						Type
+						<select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+							<option value="all">Tous</option>
+							<option value="dum">DUM</option>
+							<option value="invoice">Facture</option>
+						</select>
+					</label>
+					<label>
+						Statut
+						<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+							<option value="all">Tous</option>
+							<option value="validated">Validé / contrôlé</option>
+							<option value="in_progress">En cours</option>
+							<option value="rejected">Rejeté</option>
+							<option value="reconciled">Réconcilié</option>
+						</select>
+					</label>
+					<label>
+						Période
+						<select
+							value={periodDays}
+							onChange={(e) => setPeriodDays(Number(e.target.value))}
+						>
+							<option value={0}>Tout</option>
+							<option value={7}>7 jours</option>
+							<option value={30}>30 jours</option>
+						</select>
+					</label>
+					<button type="button" className="history-btn ghost" onClick={loadHistory} disabled={loading}>
+						<RefreshCw size={16} />
+						Actualiser
+					</button>
+					<button
+						type="button"
+						className="history-btn outline"
+						onClick={handleExportCsv}
+						disabled={loading || filteredRows.length === 0}
+					>
+						<Download size={16} />
+						Export CSV
+					</button>
+					{selectedCount > 0 ? (
+						<button
+							type="button"
+							className="history-btn danger"
+							onClick={handleDeleteSelected}
+							disabled={loading || deleting}
+						>
+							<Trash2 size={16} />
+							{deleting ? 'Suppression…' : `Supprimer (${selectedCount})`}
+						</button>
+					) : null}
+				</div>
+			</section>
+
+			<section className="activities history-section">
+				<div className="section-header">
+					<h2>{isAdmin ? 'Historique complet' : 'Mes activités'}</h2>
+					<span className="history-count">
+						{loading
+							? 'Chargement…'
+							: `${filteredRows.length} / ${allRows.length} enregistrement${allRows.length > 1 ? 's' : ''}`}
+					</span>
+				</div>
+
+				<div className="history-table history-table--unified">
+					<div className="history-table-head">
+						<span className="history-select-head">
+							<input
+								type="checkbox"
+								checked={allFilteredSelected}
+								disabled={loading || filteredRows.length === 0}
+								onChange={toggleSelectAllFiltered}
+								aria-label="Tout sélectionner (filtre actuel)"
+							/>
+						</span>
+						<span>Type</span>
+						<span>Référence / fichier</span>
+						{isAdmin ? <span>Propriétaire</span> : <span>—</span>}
+						<span>Date</span>
+						<span>Statut</span>
+						<span>Réconciliation</span>
+						<span>Corr.</span>
+						<span>Actions</span>
+					</div>
+
+					{loading ? (
+						<div className="history-table-row history-loading-row">
+							<span colSpan="8">Chargement…</span>
+						</div>
+					) : filteredRows.length > 0 ? (
+						filteredRows.map((row) => (
+							<div
+								key={row.id}
+								className={`history-table-row${selectedIds.has(row.id) ? ' history-table-row--selected' : ''}`}
+							>
+								<span className="history-select-cell">
+									<input
+										type="checkbox"
+										checked={selectedIds.has(row.id)}
+										onChange={() => toggleRowSelection(row.id)}
+										aria-label={`Sélectionner ${row.reference}`}
+									/>
+								</span>
+								<span>
+									<span className={`history-type-pill history-type-pill--${row.type}`}>
+										{row.type === 'dum' ? <FileText size={12} /> : <Receipt size={12} />}
+										{row.typeLabel}
+									</span>
+								</span>
+								<span className="history-doc-main">
+									<strong>{row.reference}</strong>
+									<small>{row.fileName || '—'}</small>
+								</span>
+								<span>{isAdmin ? row.owner || '—' : 'Moi'}</span>
+								<span className="history-date-cell">{row.dateLabel}</span>
+								<span>
+									<span className={`status-pill ${row.statusTone}`}>{row.status}</span>
+								</span>
+								<span>
+									<span className={`history-recon-pill ${row.reconciliationTone}`}>
+										{row.reconciliationLabel}
+									</span>
+								</span>
+								<span className="history-corr-cell" title={row.correctionsHint || ''}>
+									{row.correctionsCount}
+								</span>
+								<span className="history-actions-cell">
+									{row.type === 'dum' ? (
+										<>
+											<Link
+												className="table-action table-action--detail"
+												to={`/documents/${row.dumId}`}
+											>
+												Détail
+											</Link>
+											<button
+												type="button"
+												className="table-action table-action--btn table-action--validation"
+												disabled={openingValidationId === row.id}
+												onClick={() => openValidation(row)}
+											>
+												{openingValidationId === row.id ? 'Chargement…' : 'Validation'}
+											</button>
+											<button
+												type="button"
+												className="table-action table-action--btn table-action--reconcile"
+												onClick={() => startCrossVerify(row)}
+											>
+												Réconciliation
+											</button>
+										</>
+									) : (
+										<>
+											<Link
+												className="table-action table-action--detail"
+												to={`/invoices/${row.invoiceId}`}
+											>
+												Détail
+											</Link>
+											<button
+												type="button"
+												className="table-action table-action--btn table-action--validation"
+												disabled={openingValidationId === row.id}
+												onClick={() => openValidation(row)}
+											>
+												{openingValidationId === row.id ? 'Chargement…' : 'Validation'}
+											</button>
+											<button
+												type="button"
+												className="table-action table-action--btn table-action--reconcile"
+												onClick={() => startCrossVerify(row)}
+											>
+												Réconciliation
+											</button>
+										</>
+									)}
+								</span>
+							</div>
+						))
+					) : (
+						<div className="history-empty-state">
+							<p>Aucun enregistrement ne correspond aux filtres.</p>
+							<Link to="/import" className="history-btn primary">
+								Importer un document <ArrowRight size={14} />
+							</Link>
+						</div>
+					)}
+				</div>
+
+				{!loading && hasMoreFromApi ? (
+					<div className="history-load-more">
+						<button
+							type="button"
+							className="history-btn ghost"
+							onClick={loadMoreFromApi}
+							disabled={loadingMore}
+						>
+							{loadingMore
+								? 'Chargement…'
+								: `Charger plus (DUM ${dumHistory.length}/${dumTotal} · Factures ${invoiceItems.length}/${invoiceTotal})`}
+						</button>
+					</div>
+				) : null}
+			</section>
+		</div>
+	);
 }
 
 export default HistoryPage;

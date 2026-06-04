@@ -1,6 +1,5 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
-import { clearToken, getToken } from '../services/api';
-import { getMe, login as loginService, logout as logoutService } from '../services/authService';
+import { getMe, login as loginService, logout as logoutService, logoutAllSessions as logoutAllService } from '../services/authService';
 
 export const AuthContext = createContext({
 	user: null,
@@ -8,6 +7,7 @@ export const AuthContext = createContext({
 	isAuthenticated: false,
 	login: async () => {},
 	logout: async () => {},
+	logoutAllSessions: async () => {},
 	refreshUser: async () => {},
 });
 
@@ -17,17 +17,10 @@ export function AuthProvider({ children }) {
 
 	useEffect(() => {
 		const bootstrap = async () => {
-			const token = getToken();
-			if (!token) {
-				setLoading(false);
-				return;
-			}
-
 			try {
 				const me = await getMe();
 				setUser(me);
 			} catch (error) {
-				clearToken();
 				setUser(null);
 			} finally {
 				setLoading(false);
@@ -45,12 +38,13 @@ export function AuthProvider({ children }) {
 
 	const login = useCallback(async (credentials) => {
 		const data = await loginService(credentials);
+		let me = null;
 		try {
-			await refreshUser();
+			me = await refreshUser();
 		} catch (error) {
 			setUser(null);
 		}
-		return data;
+		return { ...data, user: me };
 	}, [refreshUser]);
 
 	const logout = useCallback(async () => {
@@ -59,7 +53,14 @@ export function AuthProvider({ children }) {
 		} catch (error) {
 			// Even if the API fails, clear local auth state.
 		} finally {
-			clearToken();
+			setUser(null);
+		}
+	}, []);
+
+	const logoutAllSessions = useCallback(async () => {
+		try {
+			await logoutAllService();
+		} finally {
 			setUser(null);
 		}
 	}, []);
@@ -71,9 +72,10 @@ export function AuthProvider({ children }) {
 			isAuthenticated: Boolean(user),
 			login,
 			logout,
+			logoutAllSessions,
 			refreshUser,
 		}),
-		[user, loading, login, logout, refreshUser],
+		[user, loading, login, logout, logoutAllSessions, refreshUser],
 	);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

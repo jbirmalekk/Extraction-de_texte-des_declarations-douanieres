@@ -1,0 +1,15 @@
+[
+  {
+    "file": "sample1.pdf",
+    "expected": {
+      "numero_declaration": "123456",
+      "date_declaration": "01-01-2026",
+      "importateur_nom": "RHINESTAHL CTS",
+      "poids_brut": "139",
+      "poids_net": "61",
+      "code_gdt": "602",
+      "montant_liquidation": "13.000",
+      "cle_authentification": "D5051DDMW"
+    }
+  }
+]

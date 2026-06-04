@@ -6,23 +6,19 @@ const OCR_MODEL_FIELD_DEFS = [
 	{ key: 'adresse_exportateur', label: 'Adresse exportateur', section: 'Informations generales' },
 	{ key: 'code_exportateur', label: 'Code exportateur', section: 'Informations generales' },
 	{ key: 'importateur', label: 'Importateur', section: 'Informations generales' },
-	{ key: 'adresse_importateur', label: 'Adresse importateur', section: 'Informations generales' },
+	{ key: 'importateur_pays', label: 'Importateur - Pays', section: 'Informations generales', confidence: 91, demo: 'U.S.A' },
 	{ key: 'code_importateur', label: 'Code importateur', section: 'Informations generales' },
 	{ key: 'declarant', label: 'Declarant', section: 'Informations generales' },
 	{ key: 'repertoire', label: 'Repertoire', section: 'Informations generales' },
 	{ key: 'numero_credit', label: 'Numero credit', section: 'Informations generales' },
-
 	// 2. Declaration
 	{ key: 'numero_declaration', label: 'Numero de Declaration', section: 'Identification', required: true, confidence: 95, demo: 'FR-2024-DCL-054231' },
 	{ key: 'date_declaration', label: 'Date de Declaration', section: 'Identification', required: true, confidence: 72, demo: '2024-01-15' },
 	{ key: 'numero_dae', label: 'Numero D.A.E', section: 'Identification' },
 	{ key: 'type_declaration', label: 'Type de Declaration', section: 'Identification', required: true, confidence: 88, demo: 'DAE' },
-	{ key: 'nbre_articles', label: 'Nombre de Colis / Articles', section: 'Identification', confidence: 93, demo: '14' },
 	{ key: 'nombre_articles', label: 'Nombre total d articles', section: 'Identification' },
 	{ key: 'nombre_colis', label: 'Nombre total de colis', section: 'Identification' },
 
-	{ key: 'importateur_nom', label: 'Importateur - Nom', section: 'Importateur', required: true, confidence: 89, demo: 'CL101 RHINETAL CTS', hidden: true },
-	{ key: 'importateur_pays', label: 'Importateur - Pays', section: 'Importateur', confidence: 91, demo: 'U.S.A' },
 
 	{ key: 'declarant_code', label: 'Declarant - Code', section: 'Declarant', confidence: 86, demo: '5051', hidden: true },
 	{ key: 'declarant_nom', label: 'Declarant - Nom', section: 'Declarant', confidence: 88, demo: 'STE SMART CUSTOMS BROKERS TUNIS', hidden: true },
@@ -37,7 +33,6 @@ const OCR_MODEL_FIELD_DEFS = [
 	{ key: 'pays_provenance', label: 'Pays de Provenance', section: 'Transport', confidence: 91, demo: 'TUNISIE' },
 	{ key: 'pays_achat', label: 'Pays d achat', section: 'Transport' },
 	{ key: 'pays_premiere_destination', label: 'Pays premiere destination', section: 'Transport' },
-	{ key: 'pays_destination', label: 'Pays de Destination', section: 'Transport', confidence: 89, demo: 'PAYS BAS' },
 	{ key: 'pays_destination_finale', label: 'Pays destination definitive', section: 'Transport' },
 	{ key: 'adresse_entreposage', label: 'Adresse Entreposage', section: 'Transport', confidence: 77, demo: 'SUITE SE 600204 DU 30-06-2025' },
 
@@ -46,41 +41,45 @@ const OCR_MODEL_FIELD_DEFS = [
 	{ key: 'mode_paiement', label: 'Mode de paiement', section: 'Finances' },
 	{ key: 'relation_acheteur_vendeur', label: 'Relation acheteur/vendeur', section: 'Finances' },
 	{ key: 'engagement', label: 'Engagement', section: 'Finances' },
+	{ key: 'engag_c', label: 'Engag C', section: 'Finances' },
 	{ key: 'devise', label: 'Devise', section: 'Finances', confidence: 92, demo: 'USD' },
-	{ key: 'valeur_totale', label: 'Valeur totale', section: 'Finances' },
-	{ key: 'assurance', label: 'Assurance', section: 'Finances' },
-	{ key: 'fret', label: 'Fret', section: 'Finances' },
 	{ key: 'montant_ptfn', label: 'Montant PTFN', section: 'Finances', confidence: 58, demo: '10500.000', forceError: true },
-	{ key: 'valeur_fob_dt', label: 'Valeur FOB (DT)', section: 'Finances', confidence: 75, demo: '30542.400' },
-	{ key: 'taux_conversion', label: 'Taux Conversion', section: 'Finances', confidence: 76, demo: '2.908800' },
-	{ key: 'valeur_dinars', label: 'Valeur en dinars', section: 'Finances' },
+	{ key: 'solde_autres_elements_ptfn', label: 'Solde autres elements PTFN', section: 'Finances' },
+	{ key: 'fret', label: 'Fret', section: 'Finances' },
+	{ key: 'assurance', label: 'Assurance', section: 'Finances' },
+	
+	{ key: 'taux_conversion', label: 'Cours de Conversion de la devise de facturation', section: 'Finances', confidence: 76, demo: '2.908800' },
+	//{ key: 'valeur_fob_dt', label: 'Valeur FOB (DT)', section: 'Finances', confidence: 75, demo: '30542.400' },
+	{ key: 'valeur_dinars', label: 'Valeur douane totale en dinars', section: 'Finances' },
 
 	// 6. Logistique
 	{ key: 'bureau_frontiere', label: 'Bureau frontiere', section: 'Logistique' },
 	{ key: 'destination', label: 'Destination', section: 'Logistique' },
-	{ key: 'localisation_export', label: 'Localisation EXPORT', section: 'Logistique' },
+	{ key: 'localisation_export', label: 'Localisation ', section: 'Logistique' },
 
 	{ key: 'designation_marchandises', label: 'Designation Marchandises', section: 'Marchandises', confidence: 85, demo: "Autres parties d'avions" },
 	{ key: 'numero_article', label: 'Numero article', section: 'Marchandises' },
 	{ key: 'code_sh_ndp', label: 'Code SH (NDP)', section: 'Marchandises' },
 	{ key: 'code_pays_origine', label: 'Code pays origine', section: 'Marchandises' },
-	{ key: 'valeur_prise_en_charge', label: 'Valeur prise en charge', section: 'Marchandises' },
+	{ key: 'valeur_prise_en_charge', label: 'Valeur prise en charge sous rég-précedent', section: 'Marchandises' },
 	{ key: 'code_qcs', label: 'Code QCS', section: 'Marchandises' },
 	{ key: 'qcs', label: 'QCS', section: 'Marchandises' },
-	{ key: 'pfn', label: 'PFN', section: 'Marchandises' },
+	{ key: 'pfn', label: "PFN de l'article", section: 'Marchandises' },
 	{ key: 'poids_brut', label: 'Poids Brut (kg)', section: 'Marchandises', confidence: 83, demo: '139' },
 	{ key: 'poids_net', label: 'Poids Net (kg)', section: 'Marchandises', confidence: 77, demo: '61' },
 	{ key: 'qualite_fiscale', label: 'Qualite fiscale', section: 'Marchandises' },
-	{ key: 'regime_douanier', label: 'Regime douanier', section: 'Marchandises' },
-	{ key: 'imposition_speciale', label: 'Imposition speciale', section: 'Marchandises' },
-	{ key: 'numero_titre_ce', label: 'Numero titre CE', section: 'Marchandises' },
-	{ key: 'code_regime_precedent', label: 'Code regime precedent', section: 'Marchandises' },
-	{ key: 'code_regime_financier', label: 'Code regime financier', section: 'Marchandises' },
+	{ key: 'imposition_speciale', label: 'Regime douanier declare', section: 'Marchandises' },
+	{ key: 'code_regime_transit', label: 'Regime douanier transit', section: 'Marchandises' },
+	{ key: 'code_regime_precedent', label: 'Regime douanier precedent', section: 'Marchandises' },
+	{ key: 'code_regime_financier', label: 'Code reglement financier', section: 'Marchandises' },
 	{ key: 'code_delai', label: 'Code delai', section: 'Marchandises' },
-	{ key: 'code_oci', label: 'Code OCI', section: 'Marchandises' },
-	{ key: 'douane', label: 'Douane', section: 'Marchandises' },
+	{ key: 'code_oci', label: 'Code QCI', section: 'Marchandises' },
+	{ key: 'regime', label: 'Regime', section: 'Marchandises' },
+	{ key: 'code_titre_ce', label: 'Code Titre CE', section: 'Marchandises' },
+	{ key: 'numero_titre_ce', label: 'Numero Titre CE', section: 'Marchandises' },
+	{ key: 'valeur_fob', label: 'FOB (valeur en dinars)', section: 'Marchandises' },
+	{ key: 'douane', label: 'Douane (valeur en dinars)', section: 'Marchandises' },
 	{ key: 'coefficient_ajustement', label: 'Coefficient ajustement', section: 'Marchandises' },
-	{ key: 'description_marchandise', label: 'Description marchandise', section: 'Marchandises' },
 
 	// 9. Taxes/Liquidation
 	{ key: 'code_taxe', label: 'Code taxe', section: 'Liquidation' },
@@ -98,6 +97,9 @@ const OCR_MODEL_FIELD_DEFS = [
 	{ key: 'montant_total', label: 'Montant total', section: 'Liquidation' },
 	{ key: 'total', label: 'Total', section: 'Liquidation' },
 	{ key: 'totaux', label: 'Totaux', section: 'Liquidation' },
+	{ key: 'certificat_decharge', label: 'Certificat de decharge', section: 'Liquidation' },
+	{ key: 'numero_escale', label: 'Numero escale', section: 'Liquidation' },
+	{ key: 'rubrique', label: 'Rubrique', section: 'Liquidation' },
 	{ key: 'itineraire', label: 'Itineraire', section: 'Liquidation', confidence: 87, demo: 'SFAX-TC' },
 	{ key: 'commissaire_douane', label: 'Commissaire en douane', section: 'Liquidation' },
 	{ key: 'num_agrement', label: 'Numero Agrement', section: 'Liquidation', confidence: 88, demo: '935' },
@@ -107,7 +109,7 @@ const OCR_MODEL_FIELD_DEFS = [
 	{ key: 'date_validation', label: 'Date validation', section: 'Liquidation' },
 	{ key: 'cachet', label: 'Cachet', section: 'Liquidation' },
 	{ key: 'cle_authentification', label: 'Cle Authentification', section: 'Liquidation', required: true, confidence: 86, demo: 'D5051DDMW' },
-	{ key: 'qr_code', label: 'QR Code', section: 'Liquidation' },
+
 
 	{ key: 'score_confiance', label: 'Score Confiance', section: 'Qualite OCR', confidence: 96, demo: '82' },
 	{ key: 'qualite', label: 'Qualite OCR', section: 'Qualite OCR', confidence: 96, demo: 'HAUT' },
@@ -127,7 +129,8 @@ const FIELD_VALUE_ALIASES = {
 	nombre_articles: ['nbre_articles'],
 	pays_destination_finale: ['pays_destination'],
 	transport_international_mode: ['mode_transport'],
-	valeur_dinars: ['valeur_fob_dt'],
+	valeur_dinars: ['valeur_fob_dt', 'douane'],
+	valeur_fob: ['valeur_fob_dt'],
 	designation_marchandise: ['designation_marchandises'],
 	designation_bureau: ['bureau_douane'],
 	nom_declarant: ['declarant_nom'],
@@ -158,9 +161,55 @@ const toJsonString = (value) => {
 	}
 	try {
 		return JSON.stringify(value);
-	} catch (_error) {
+	} catch {
 		return String(value);
 	}
+};
+
+const toConfidenceNumber = (value) => {
+	if (value === null || value === undefined || value === '') {
+		return null;
+	}
+	const numericValue = Number(value);
+	return Number.isFinite(numericValue) ? numericValue : null;
+};
+
+const resolveBackendConfidence = (result, key) => {
+	if (!result || !key) {
+		return null;
+	}
+
+	const containers = [
+		result.field_confidences,
+		result.field_confidence,
+		result.confidences,
+		result.confidence_by_field,
+		result.scores_by_field,
+	];
+
+	for (const container of containers) {
+		if (!container || typeof container !== 'object') {
+			continue;
+		}
+		const directValue = container[key] ?? container[`tpl_${key}`];
+		if (directValue && typeof directValue === 'object') {
+			const nestedConfidence = toConfidenceNumber(directValue.confidence ?? directValue.score);
+			if (nestedConfidence !== null) {
+				return nestedConfidence;
+			}
+		}
+		const confidence = toConfidenceNumber(directValue);
+		if (confidence !== null) {
+			return confidence;
+		}
+	}
+
+	const fieldValue = result.fields?.[key] ?? result.ocr_fields?.[key];
+	if (fieldValue && typeof fieldValue === 'object') {
+		return toConfidenceNumber(fieldValue.confidence ?? fieldValue.score);
+	}
+
+	return null;
 };
 
 const mapOneField = (def, result, options = {}) => {
@@ -180,7 +229,7 @@ const mapOneField = (def, result, options = {}) => {
 		label: def.label,
 		section: def.section,
 		value,
-		confidence: typeof def.confidence === 'number' ? def.confidence : null,
+		confidence: resolveBackendConfidence(result, resolvedKey || def.key) ?? resolveBackendConfidence(result, def.key),
 		hasError,
 		isManual: false,
 	};

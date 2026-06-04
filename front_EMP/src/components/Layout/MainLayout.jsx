@@ -7,7 +7,24 @@ function MainLayout() {
 	const { isAuthenticated } = useAuth();
 	const location = useLocation();
 
-	const appPaths = ['/dashboard', '/import', '/ocr-result', '/validation', '/history', '/profile', '/admin'];
+	const appPaths = [
+		'/dashboard',
+		'/admin/dashboard',
+		'/documents',
+		'/invoices',
+		'/import',
+		'/ocr-result',
+		'/invoice-ocr-result',
+		'/batch-results',
+		'/validation',
+		'/invoice-validation',
+		'/cross-verification',
+		'/reports',
+		'/erp-success',
+		'/history',
+		'/profile',
+		'/admin',
+	];
 	const showSideNav =
 		isAuthenticated && appPaths.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
 

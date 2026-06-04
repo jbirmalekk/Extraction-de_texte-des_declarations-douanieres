@@ -9,7 +9,7 @@ function RegisterPage() {
 		<div className="auth-container fancy-auth-bg">
 			<Link to="/" className="auth-back">
 				<span className="auth-back-arrow">←</span>
-				<span>Welcome</span>
+				<span>Accueil</span>
 			</Link>
 			<div className="auth-blob auth-blob-one" />
 			<div className="auth-blob auth-blob-two" />
@@ -20,10 +20,10 @@ function RegisterPage() {
 							<img src={empLogo} alt="EMP Logo" className="accent-logo" />
 							<span className="accent-name">EMP SmartOCR</span>
 						</div>
-						<h2>Welcome Back!</h2>
-						<p>Already have an account?</p>
+						<h2>Bon retour !</h2>
+						<p>Vous avez déjà un compte ?</p>
 						<Link to="/login" className="accent-cta">
-							Login
+							Connexion
 						</Link>
 					</div>
 				</div>
@@ -31,16 +31,26 @@ function RegisterPage() {
 				<div className="form-panel fade-up">
 					<div className="auth-header split-header">
 						
-						<h1>Create account</h1>
-						<p className="auth-subtitle">Join us to start automating your customs documents</p>
+						<h1>Créer un compte</h1>
+						<p className="auth-subtitle">Automatisez le traitement de vos documents douaniers</p>
 					</div>
 
-					<RegisterForm onSuccess={() => navigate('/dashboard')} />
+					<RegisterForm
+						onSuccess={() =>
+							navigate('/login', {
+								replace: true,
+								state: {
+									message:
+										'Compte créé. Vérifiez votre e-mail et attendez l\'approbation d\'un administrateur.',
+								},
+							})
+						}
+					/>
 
 					<p className="auth-footer">
-						Already have an account?{' '}
+						Vous avez déjà un compte ?{' '}
 						<Link to="/login" className="auth-link">
-							Sign in
+							Se connecter
 						</Link>
 					</p>
 				</div>

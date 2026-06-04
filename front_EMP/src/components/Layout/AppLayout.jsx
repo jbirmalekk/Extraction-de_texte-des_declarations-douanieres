@@ -22,18 +22,18 @@ function AppLayout() {
 						<img src={empLogo} alt="EMP" className="app-brand-logo" />
 						<div className="app-brand-text">
 							<span className="app-brand-title">EMP SmartOCR</span>
-							<span className="app-brand-tagline">Automate customs intelligence</span>
+							<span className="app-brand-tagline">Intelligence douanière automatisée</span>
 						</div>
 					</div>
 					<nav className="nav-links">
 						<NavLink to="/dashboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-							Dashboard
+							Tableau de bord
 						</NavLink>
 						<NavLink to="/import" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-							Import documents
+							Import
 						</NavLink>
 						<NavLink to="/history" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-							History
+							Historique
 						</NavLink>
 					</nav>
 				</div>
@@ -44,7 +44,7 @@ function AppLayout() {
 					<span className="user-email">{user?.email || 'user@example.com'}</span>
 					<button className="logout-btn" onClick={handleLogout}>
 						<LogOut size={16} />
-						Logout
+						Déconnexion
 					</button>
 				</div>
 			</header>

@@ -4,10 +4,10 @@ function NotFoundPage() {
 	return (
 		<div className="auth-container">
 			<div className="auth-card">
-				<h1>Page not found</h1>
-				<p className="auth-subtitle">The page you are looking for does not exist.</p>
+				<h1>Page introuvable</h1>
+				<p className="auth-subtitle">La page que vous recherchez n&apos;existe pas.</p>
 				<Link to="/" className="auth-button" style={{ textAlign: 'center' }}>
-					Back to home
+					Retour à l&apos;accueil
 				</Link>
 			</div>
 		</div>

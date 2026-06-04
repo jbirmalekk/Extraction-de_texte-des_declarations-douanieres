@@ -113,14 +113,17 @@ class UserInDB(UserBase):
 
 class Token(BaseModel):
     """Schéma pour le token JWT renvoyé après login"""
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str = "bearer"
+    expires_in: Optional[int] = None
+    message: str = "Authentication successful"
 
 
 class TokenData(BaseModel):
     """Données extraites du token JWT"""
     username: Optional[str] = None
     jti: Optional[str] = None
+    token_version: Optional[int] = None
 
 
 class EmailVerification(BaseModel):

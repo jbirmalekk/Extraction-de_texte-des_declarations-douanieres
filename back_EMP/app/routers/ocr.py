@@ -1,9 +1,14 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Header, Request
-from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from fastapi.responses import JSONResponse, Response
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import String
+from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from typing import Any
 import logging
+import subprocess
+
+from pytesseract import TesseractNotFoundError
 
 # Importer TON get_db existant
 from app.database import get_db
@@ -20,13 +25,72 @@ from app.models.document import (
     CorrectionHistory,
 )
 from app.models.user import User
-from app.models.schemas import (OCRResultSchema, OCRValidationSchema,
-                                 DocumentResponseSchema)
+from app.models.schemas import (
+    OCRResultSchema,
+    OCRValidationSchema,
+    DocumentResponseSchema,
+    BulkDeleteIdsSchema,
+)
 from app.routers.auth import get_current_user
-from app.services.nextcloud_storage import NextcloudUploadError, upload_file_to_nextcloud
+from app.services.document_file_storage import (
+    delete_local_document_file,
+    document_has_stored_file,
+    find_local_document_by_id,
+    is_local_dossier,
+    local_dossier_for_document_id,
+    read_local_document_file,
+    save_local_document_file,
+)
+from app.services.nextcloud_storage import (
+    NextcloudUploadError,
+    download_file_from_nextcloud,
+    upload_file_to_nextcloud,
+)
 from app.services.pipeline import process_document
+from app.services.document_quality import assess_upload_document
 
 router = APIRouter(prefix="/api", tags=["OCR"])
+
+
+def _assert_user_can_access_document(
+    doc: Document,
+    user: User,
+    db: Session | None = None,
+) -> None:
+    """Même règle d'accès pour détail, corrections et fichier source (admin = tout)."""
+    if user.role == "admin":
+        return
+
+    owner_id = doc.uploaded_by_user_id
+    if owner_id is not None:
+        try:
+            if int(owner_id) != int(user.id):
+                raise HTTPException(status_code=403, detail="Acces non autorise")
+        except (TypeError, ValueError):
+            if owner_id != user.id:
+                raise HTTPException(status_code=403, detail="Acces non autorise")
+        return
+
+    if db is None:
+        return
+
+    trace = (
+        db.query(DocumentUploadTrace)
+        .filter(DocumentUploadTrace.document_id == doc.id)
+        .order_by(DocumentUploadTrace.uploaded_at.desc())
+        .first()
+    )
+    trace_owner = trace.uploaded_by_user_id if trace else None
+    if trace_owner is None:
+        return
+    try:
+        if int(trace_owner) != int(user.id):
+            raise HTTPException(status_code=403, detail="Acces non autorise")
+    except (TypeError, ValueError):
+        if trace_owner != user.id:
+            raise HTTPException(status_code=403, detail="Acces non autorise")
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,17 +110,18 @@ EXTRACTED_FIELD_KEYS = [
     "pays_achat", "pays_premiere_destination", "pays_destination_finale",
     "adresse_entreposage", "mode_livraison", "devise", "montant_ptfn",
     "mode_paiement", "relation_acheteur_vendeur", "engagement", "valeur_totale",
-    "assurance", "fret", "valeur_dinars",
+    "assurance", "fret", "valeur_dinars", "engag_c", "solde_autres_elements_ptfn", "cours_conversion_zone",
     "valeur_fob_dt", "taux_conversion", "designation_marchandises", "poids_brut",
     "poids_net", "numero_article", "code_sh_ndp", "code_pays_origine",
     "valeur_prise_en_charge", "code_qcs", "qcs", "pfn", "qualite_fiscale",
-    "regime_douanier", "imposition_speciale", "numero_titre_ce",
-    "code_regime_precedent", "code_regime_financier", "code_delai", "code_oci",
-    "douane", "coefficient_ajustement", "description_marchandise",
+    "regime_douanier", "imposition_speciale", "code_titre_ce", "numero_titre_ce",
+    "code_regime_precedent", "code_regime_financier", "code_regime_transit",
+    "code_delai", "code_oci", "regime", "valeur_fob", "douane", "coefficient_ajustement",
+    "description_marchandise",
     "bureau_frontiere", "destination", "localisation_export",
     "bureau_douane", "code_bureau", "designation_bureau",
     "code_taxe", "assiette", "quotite", "montant",
-    "code_gdt", "montant_liquidation", "montant_total", "total", "totaux", "itineraire",
+    "code_gdt", "montant_liquidation", "montant_total", "total", "totaux", "itineraire", "certificat_decharge", "numero_escale", "rubrique",
     "commissaire_douane", "texte_engagement", "nom_declarant", "date_validation", "cachet",
     "num_agrement", "num_repertoire", "cle_authentification", "score_confiance", "qualite",
     "qr_code",
@@ -107,7 +172,7 @@ def _normalize_validation_status(status: str | None) -> str:
         "inprogress": "in_progress",
         "processing": "in_progress",
     }
-    return mapping.get(candidate, "validated")
+    return mapping.get(candidate, "in_progress")
 
 
 def _session_to_document_status(session_status: str) -> str:
@@ -131,6 +196,20 @@ def _hydrate_document_from_result(doc: Document, result: dict[str, Any]) -> None
             setattr(doc, key, value)
 
 
+def _clamp_document_strings(doc: Document) -> None:
+    """Truncate string columns to SQL Server limits (avoids 500 + misleading CORS errors)."""
+    for column in Document.__table__.columns:
+        col_type = getattr(column, "type", None)
+        max_len = getattr(col_type, "length", None)
+        if not isinstance(col_type, String) or not max_len:
+            continue
+        raw = getattr(doc, column.name, None)
+        if raw is None or not isinstance(raw, str):
+            continue
+        if len(raw) > max_len:
+            setattr(doc, column.name, raw[:max_len])
+
+
 @router.post("/ocr")
 async def extract_declaration(
     request: Request,
@@ -149,6 +228,17 @@ async def extract_declaration(
 
     file_bytes = await file.read()
     original_filename = file.filename or "document"
+
+    document_quality = assess_upload_document(file_bytes, file.content_type)
+    if document_quality.get("block"):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Qualite du document insuffisante pour l'OCR",
+                "document_quality": document_quality,
+            },
+        )
+
     nextcloud_meta = None
     nextcloud_error: str | None = None
 
@@ -184,12 +274,36 @@ async def extract_declaration(
         elif nextcloud_error:
             fallback_reason = "nextcloud-upload-error"
 
-    result = process_document(
-        file_bytes = file_bytes,
-        filename   = original_filename,
-        fast_mode  = fast_mode,
-        use_deskew = use_deskew,
-    )
+    try:
+        result = process_document(
+            file_bytes=file_bytes,
+            filename=original_filename,
+            fast_mode=fast_mode,
+            use_deskew=use_deskew,
+        )
+    except (TesseractNotFoundError, subprocess.CalledProcessError, FileNotFoundError) as exc:
+        logger.exception("ocr_tesseract_unavailable fichier=%s", original_filename)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Le moteur OCR Tesseract n'est pas disponible ou ne demarre pas.",
+                "hint": (
+                    "Reinstallez Tesseract OCR (Windows), ajoutez-le au PATH, "
+                    "puis verifiez TESSERACT_PATH dans back_EMP/.env "
+                    f"(actuel: {settings.TESSERACT_PATH or 'non defini'})."
+                ),
+                "error": str(exc)[:500],
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("ocr_process_failed fichier=%s", original_filename)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "Erreur interne lors de l'extraction OCR.",
+                "error": str(exc)[:500],
+            },
+        ) from exc
 
     if "erreur" in result:
         detail = (
@@ -206,6 +320,7 @@ async def extract_declaration(
         "error": nextcloud_error,
     }
     result["storage"] = storage_payload
+    result["document_quality"] = document_quality
 
     # Sauvegarder en base
     doc = Document(
@@ -249,14 +364,43 @@ async def extract_declaration(
         texte_brut               = result.get("texte_brut","")[:5000],
     )
     _hydrate_document_from_result(doc, result)
+    _clamp_document_strings(doc)
     db.add(doc)
-    db.flush()
+    try:
+        db.flush()
+    except SQLAlchemyError as exc:
+        logger.exception("ocr_save_failed fichier=%s", original_filename)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "Echec enregistrement en base (donnees trop longues ou invalides).",
+                "hint": str(exc.orig) if getattr(exc, "orig", None) else str(exc),
+            },
+        ) from exc
+
+    local_dossier = None
+    try:
+        local_dossier = save_local_document_file(doc.id, file_bytes, original_filename)
+    except OSError as exc:
+        logger.warning("dum_local_storage_failed id=%s err=%s", doc.id, exc)
+    if local_dossier:
+        doc.dossier = local_dossier
+        db.flush()
+        logger.info("dum_local_storage_ok id=%s path=%s", doc.id, local_dossier)
+    elif nextcloud_meta:
+        doc.dossier = nextcloud_meta.get("remote_path")
+    else:
+        logger.warning(
+            "dum_no_storage_path id=%s fichier=%s (aperçu historique indisponible sans réimport)",
+            doc.id,
+            original_filename,
+        )
 
     ocr_result = OCRResult(
         document_id=doc.id,
         raw_result_json=result,
         global_confidence=_to_float_or_none(result.get("score_confiance")),
-        engine_name="tesseract",
+        engine_name=str(result.get("ocr_engine_used") or "tesseract"),
     )
     db.add(ocr_result)
     db.flush()
@@ -315,6 +459,8 @@ async def extract_declaration(
     db.refresh(doc)
 
     result["id"] = doc.id
+    result["dossier"] = doc.dossier
+    result["storage_local"] = bool(local_dossier)
     return JSONResponse(content=result)
 
 
@@ -492,23 +638,268 @@ async def get_latest_corrections(
     }
 
 
+@router.get("/ocr/{document_id}/corrections")
+async def list_document_corrections(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Timeline complète des corrections pour l'historique / détail document."""
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document non trouve")
+    _assert_user_can_access_document(doc, current_user, db)
+
+    rows = (
+        db.query(CorrectionHistory, ExtractedField, User)
+        .join(
+            ValidationSession,
+            CorrectionHistory.validation_session_id == ValidationSession.id,
+        )
+        .outerjoin(
+            ExtractedField,
+            CorrectionHistory.extracted_field_id == ExtractedField.id,
+        )
+        .outerjoin(User, CorrectionHistory.changed_by_user_id == User.id)
+        .filter(ValidationSession.document_id == document_id)
+        .order_by(CorrectionHistory.changed_at.desc(), CorrectionHistory.id.desc())
+        .all()
+    )
+
+    items = []
+    for history_row, extracted_field, changed_by_user in rows:
+        items.append(
+            {
+                "id": history_row.id,
+                "field_key": extracted_field.field_key if extracted_field else None,
+                "old_value": history_row.old_value,
+                "new_value": history_row.new_value,
+                "action_type": history_row.action_type,
+                "modified_by_username": changed_by_user.username if changed_by_user else None,
+                "modified_at": history_row.changed_at.isoformat() if history_row.changed_at else None,
+                "validation_session_id": history_row.validation_session_id,
+            }
+        )
+
+    return {"document_id": document_id, "corrections": items, "total": len(items)}
+
+
 @router.get("/documents", response_model=list[DocumentResponseSchema])
 async def liste_documents(
     skip  : int = 0,
     limit : int = 50,
+    current_user: User = Depends(get_current_user),
     db    : Session = Depends(get_db),
 ):
-    return db.query(Document).order_by(
-        Document.created_at.desc()
-    ).offset(skip).limit(limit).all()
+    query = db.query(Document).order_by(Document.created_at.desc())
+    if current_user.role != "admin":
+        query = query.filter(Document.uploaded_by_user_id == current_user.id)
+    return query.offset(skip).limit(limit).all()
+
+
+def _serialize_document_detail(doc: Document, db: Session | None = None) -> dict:
+    """Réponse détail DUM : colonnes document + articles + taxes + auteur."""
+    uploaded_by = None
+    if doc.uploaded_by:
+        uploaded_by = {
+            "id": doc.uploaded_by.id,
+            "username": doc.uploaded_by.username,
+            "email": getattr(doc.uploaded_by, "email", None),
+        }
+    articles = [
+        {
+            "id": a.id,
+            "num_ligne": a.num_ligne,
+            "code_hs": a.code_hs,
+            "designation": a.designation,
+            "quantite": a.quantite,
+            "unite": a.unite,
+            "prix_unitaire": a.prix_unitaire,
+            "total_ligne": a.total_ligne,
+        }
+        for a in (doc.articles or [])
+    ]
+    taxes = [
+        {
+            "id": t.id,
+            "code": t.code,
+            "assiette": t.assiette,
+            "quotite": t.quotite,
+            "montant": t.montant,
+        }
+        for t in (doc.taxes or [])
+    ]
+    payload = {c.name: getattr(doc, c.name, None) for c in Document.__table__.columns}
+    payload["uploaded_by"] = uploaded_by
+    payload["articles"] = articles
+    payload["taxes"] = taxes
+    storage_path = _resolve_document_storage_path(doc, db) if db is not None else doc.dossier
+    payload["has_source_file"] = document_has_stored_file(doc.id, storage_path)
+    return payload
+
+
+def _resolve_document_storage_path(doc: Document, db: Session) -> str | None:
+    if doc.dossier:
+        return doc.dossier
+    trace = (
+        db.query(DocumentUploadTrace)
+        .filter(DocumentUploadTrace.document_id == doc.id)
+        .order_by(DocumentUploadTrace.uploaded_at.desc())
+        .first()
+    )
+    if trace and trace.nextcloud_path:
+        return trace.nextcloud_path
+    return local_dossier_for_document_id(doc.id)
+
+
+def _maybe_repair_local_dossier(doc: Document, db: Session) -> None:
+    """Aligne documents.dossier si le fichier local {id}{ext} existe."""
+    if doc.dossier and is_local_dossier(doc.dossier):
+        return
+    local_path = local_dossier_for_document_id(doc.id)
+    if local_path and doc.dossier != local_path:
+        doc.dossier = local_path
+        db.commit()
+
+
+@router.get("/documents/{document_id}/file")
+async def get_document_source_file(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retourne le fichier source (Nextcloud / stockage local) pour l'aperçu frontend."""
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document non trouve")
+    _assert_user_can_access_document(doc, current_user, db)
+    _maybe_repair_local_dossier(doc, db)
+    storage_path = _resolve_document_storage_path(doc, db)
+    file_bytes = None
+    content_type = None
+    try:
+        if storage_path and is_local_dossier(storage_path):
+            file_bytes, content_type = read_local_document_file(storage_path)
+        elif storage_path:
+            try:
+                file_bytes, content_type = download_file_from_nextcloud(storage_path)
+            except (FileNotFoundError, NextcloudUploadError) as ged_exc:
+                logger.warning(
+                    "dum_ged_read_failed id=%s path=%s err=%s",
+                    document_id,
+                    storage_path,
+                    ged_exc,
+                )
+                found = find_local_document_by_id(document_id)
+                if found:
+                    file_bytes, content_type = found
+                else:
+                    raise
+        else:
+            found = find_local_document_by_id(document_id)
+            if not found:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        "Fichier source non disponible pour ce document. "
+                        "Réimportez la DUM depuis Import (type DUM) pour régénérer l'aperçu."
+                    ),
+                )
+            file_bytes, content_type = found
+    except FileNotFoundError as exc:
+        found = find_local_document_by_id(document_id)
+        if found:
+            file_bytes, content_type = found
+        else:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except NextcloudUploadError as exc:
+        found = find_local_document_by_id(document_id)
+        if found:
+            file_bytes, content_type = found
+        else:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+    media_type = content_type or "application/octet-stream"
+    filename = doc.fichier or f"document_{document_id}.pdf"
+    return Response(
+        content=file_bytes,
+        media_type=media_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @router.get("/documents/{document_id}")
 async def get_document(
     document_id : int,
+    current_user: User = Depends(get_current_user),
     db          : Session = Depends(get_db),
+):
+    doc = (
+        db.query(Document)
+        .options(
+            joinedload(Document.uploaded_by),
+            joinedload(Document.articles),
+            joinedload(Document.taxes),
+        )
+        .filter(Document.id == document_id)
+        .first()
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document non trouve")
+
+    _assert_user_can_access_document(doc, current_user, db)
+
+    return _serialize_document_detail(doc, db)
+
+
+def _remove_document(db: Session, doc: Document) -> None:
+    delete_local_document_file(doc.id, doc.dossier)
+    db.delete(doc)
+
+
+@router.delete("/documents/{document_id}", status_code=204)
+async def delete_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     doc = db.query(Document).filter(Document.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document non trouve")
-    return doc
+    _assert_user_can_access_document(doc, current_user, db)
+    _remove_document(db, doc)
+    db.commit()
+    return None
+
+
+@router.post("/documents/bulk-delete")
+async def bulk_delete_documents(
+    body: BulkDeleteIdsSchema,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Supprime plusieurs DUM (fichier local + enregistrement et données liées en cascade)."""
+    deleted: list[int] = []
+    failed: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for raw_id in body.ids[:200]:
+        try:
+            doc_id = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if doc_id in seen or doc_id <= 0:
+            continue
+        seen.add(doc_id)
+        doc = db.query(Document).filter(Document.id == doc_id).first()
+        if not doc:
+            failed.append({"id": doc_id, "detail": "not_found"})
+            continue
+        try:
+            _assert_user_can_access_document(doc, current_user, db)
+        except HTTPException:
+            failed.append({"id": doc_id, "detail": "forbidden"})
+            continue
+        _remove_document(db, doc)
+        deleted.append(doc_id)
+    if deleted:
+        db.commit()
+    return {"deleted": deleted, "failed": failed}

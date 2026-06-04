@@ -61,7 +61,7 @@ Attendez le message: `Local: http://localhost:5173`
 
 4. **Attente d'approbation**
    - Utilisateur essaie de se connecter
-   - Message: "Account not approved yet. Please wait for admin approval."
+   - Message: "Votre compte n'est pas encore approuvé. Veuillez patienter jusqu'à l'approbation de l'administrateur."
 
 5. **Admin approuve**
    - Admin accède `/admin/users`

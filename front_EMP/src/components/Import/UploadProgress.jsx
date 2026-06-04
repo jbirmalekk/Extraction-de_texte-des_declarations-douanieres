@@ -1,4 +1,4 @@
-function UploadProgress({ progress, status }) {
+function UploadProgress({ progress, status, detail }) {
 	if (status === 'idle') {
 		return null;
 	}
@@ -16,6 +16,7 @@ function UploadProgress({ progress, status }) {
 				<span>{statusLabel}</span>
 				<span>{Math.round(progress)}%</span>
 			</div>
+			{detail ? <p className="upload-progress-detail">{detail}</p> : null}
 			<div className="upload-progress-bar">
 				<div className="upload-progress-value" style={{ width: `${progress}%` }} />
 			</div>

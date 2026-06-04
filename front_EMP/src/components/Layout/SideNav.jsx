@@ -3,11 +3,14 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
 	FileUp,
 	FileText,
+	GitCompare,
+	ClipboardList,
 	History,
 	Home,
 	LayoutDashboard,
 	LogOut,
 	Menu,
+	Receipt,
 	ShieldCheck,
 	User as UserIcon,
 	X,
@@ -16,10 +19,17 @@ import empLogo from '../../assets/emp.png';
 import { useAuth } from '../../hooks/useAuth';
 
 const appLinks = [
-	{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+	{ to: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
 	{ to: '/import', label: 'Import', icon: FileUp },
-	{ to: '/ocr-result', label: 'Resultats OCR', icon: FileText },
-	{ to: '/history', label: 'Historique', icon: History, adminOnly: true },
+	{ to: '/ocr-result', label: 'Resultats DUM', icon: FileText },
+	{ to: '/invoice-ocr-result', label: 'Resultats facture', icon: Receipt },
+	{
+		to: '/cross-verification',
+		label: 'Contrôle DUM / Facture',
+		icon: GitCompare,
+	},
+	{ to: '/reports', label: 'Rapports de contrôle', icon: ClipboardList },
+	{ to: '/history', label: 'Historique', icon: History },
 	{ to: '/admin/users', label: 'Utilisateurs', icon: ShieldCheck, adminOnly: true },
 ];
 
@@ -27,7 +37,18 @@ function SideNav() {
 	const { user, logout } = useAuth();
 	const location = useLocation();
 	const [mobileOpen, setMobileOpen] = useState(false);
-	const visibleLinks = appLinks.filter((link) => !link.adminOnly || user?.role === 'admin');
+	const dashboardPath = user?.role === 'admin' ? '/admin/dashboard' : '/dashboard';
+	const visibleLinks = appLinks
+		.filter((link) => !link.adminOnly || user?.role === 'admin')
+		.map((link) =>
+			link.to === '/dashboard'
+				? {
+						...link,
+						to: dashboardPath,
+						label: user?.role === 'admin' ? 'Tableau de bord admin' : link.label,
+					}
+				: link
+		);
 
 	useEffect(() => {
 		setMobileOpen(false);

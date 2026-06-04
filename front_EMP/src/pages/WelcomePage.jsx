@@ -24,17 +24,17 @@ function WelcomePage() {
 			<main className="welcome-main">
 				<section className="hero-content">
 					<h1 className="hero-title">
-						All your customs documents,
-						<span className="gradient-text"> in one click</span>
+						Tous vos documents douaniers,
+						<span className="gradient-text"> en un clic</span>
 					</h1>
 					<p className="hero-description">
-						Your competitive advantage is here. Automatically process and validate customs declarations,
-						invoices, and documents for your growing business in minutes. Free to send and download.
+						Votre avantage concurrentiel est ici. Traitez et validez automatiquement déclarations,
+						factures et documents pour votre activité en quelques minutes.
 					</p>
 
 					<div className="hero-cta">
 						<Link to="/register" className="btn-primary">
-							Create Account
+							Créer un compte
 							<svg className="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
 								<path d="M5 12h14M12 5l7 7-7 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 							</svg>
@@ -46,12 +46,12 @@ function WelcomePage() {
 						<div className="doc-header">
 							<div className="doc-icon">📄</div>
 							<div>
-								<p className="doc-type-label">Document Type</p>
-								<p className="doc-type">Customs Declaration</p>
+								<p className="doc-type-label">Type de document</p>
+								<p className="doc-type">Déclaration douanière</p>
 							</div>
 						</div>
 						<div className="doc-body">
-							<p className="doc-body-title">Declaration Details</p>
+							<p className="doc-body-title">Détails de la déclaration</p>
 							<div className="doc-lines">
 								<span />
 								<span />
@@ -60,7 +60,7 @@ function WelcomePage() {
 							</div>
 						</div>
 						<div className="doc-footer">
-							<span className="pulse" /> Processing…
+							<span className="pulse" /> Traitement en cours…
 						</div>
 					</div>
 				</div>
@@ -68,7 +68,7 @@ function WelcomePage() {
 
 			<section id="details" className="welcome-secondary details-section">
 				<div className="welcome-section-head">
-					<p className="welcome-kicker">Detail</p>
+					<p className="welcome-kicker">Détails</p>
 					<h2>Pourquoi EMP SmartOCR</h2>
 				</div>
 				<div className="details-grid">
