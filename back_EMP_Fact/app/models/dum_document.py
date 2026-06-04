@@ -16,6 +16,7 @@ class DumDocument(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     numero_declaration: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    date_declaration: Mapped[str | None] = mapped_column(String(20), nullable=True)
     devise: Mapped[str | None] = mapped_column(String(10), nullable=True)
     montant_ptfn: Mapped[str | None] = mapped_column(String(50), nullable=True)
     nombre_colis: Mapped[str | None] = mapped_column(String(20), nullable=True)

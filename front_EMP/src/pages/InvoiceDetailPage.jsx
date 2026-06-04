@@ -7,7 +7,10 @@ import {
 	Receipt,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import ErpExportButton from '../components/Erp/ErpExportButton';
 import DetailDocumentPreview from '../components/Detail/DetailDocumentPreview';
+import { useAuth } from '../hooks/useAuth';
+import { ERP_EXPORT } from '../utils/erpExport';
 import DetailFieldsPanel from '../components/Detail/DetailFieldsPanel';
 import { fetchInvoiceById } from '../services/invoiceApi';
 import {
@@ -15,12 +18,14 @@ import {
 	formatControleTone,
 	formatInvoiceStatut,
 } from '../utils/detailDisplay';
-import { saveCrossVerificationSession } from '../utils/crossVerificationSession';
+import { beginReconciliationSession } from '../utils/crossVerificationSession';
 import { hydrateInvoiceContextFromApi } from '../utils/documentContextStorage';
+import { isInvoiceValidated, isReconciliationControlOk } from '../utils/workflowActions';
 
 function InvoiceDetailPage() {
 	const { invoiceId } = useParams();
 	const navigate = useNavigate();
+	const { user } = useAuth();
 	const [invoice, setInvoice] = useState(null);
 	const [activeTab, setActiveTab] = useState('fields');
 	const [loading, setLoading] = useState(true);
@@ -30,6 +35,10 @@ function InvoiceDetailPage() {
 	const invoiceSections = useMemo(() => buildInvoiceDetailSections(invoice), [invoice]);
 	const statusInfo = formatInvoiceStatut(invoice?.statut);
 	const controleInfo = formatControleTone(invoice?.statut_controle);
+	const invoiceValidated = isInvoiceValidated(invoice?.statut);
+	const reconOk = isReconciliationControlOk(invoice?.statut_controle);
+	const reportInvoiceId = reconOk && invoice?.id ? invoice.id : null;
+	const showReconcile = !reconOk;
 
 	const createdLabel = invoice?.created_at
 		? new Date(invoice.created_at).toLocaleString('fr-FR')
@@ -82,7 +91,7 @@ function InvoiceDetailPage() {
 		if (!invoice?.id) {
 			return;
 		}
-		saveCrossVerificationSession({
+		beginReconciliationSession({
 			sourceType: 'invoice',
 			sourceId: invoice.id,
 			sourceNumero: invoice.numero_facture,
@@ -111,18 +120,45 @@ function InvoiceDetailPage() {
 					</p>
 				</div>
 				<div className="detail-hero-actions detail-hero-actions--row">
-					<button
-						type="button"
-						className="history-btn outline"
-						onClick={openValidation}
-						disabled={openingValidation}
-					>
-						{openingValidation ? 'Chargement…' : 'Validation facture'}
-					</button>
-					<button type="button" className="history-btn primary" onClick={handleReconciliation}>
-						<GitCompare size={16} />
-						Réconciliation
-					</button>
+					{!invoiceValidated ? (
+						<button
+							type="button"
+							className="history-btn outline"
+							onClick={openValidation}
+							disabled={openingValidation}
+						>
+							{openingValidation ? 'Chargement…' : 'Validation facture'}
+						</button>
+					) : null}
+					{reportInvoiceId ? (
+						<>
+							<Link to={`/reports/${reportInvoiceId}`} className="history-btn primary">
+								Voir le rapport
+							</Link>
+							<ErpExportButton
+								kind={ERP_EXPORT.DOSSIER}
+								invoiceId={Number(invoiceId)}
+								dumId={invoice?.dum_document_id}
+								reference={invoice?.numero_facture}
+								statutControle={invoice?.statut_controle}
+								isAmountAligned={invoice?.statut_controle === 'ok'}
+								isAdmin={user?.role === 'admin'}
+							/>
+						</>
+					) : null}
+					{invoiceValidated && !reportInvoiceId ? (
+						<ErpExportButton
+							kind={ERP_EXPORT.INVOICE}
+							invoiceId={Number(invoiceId)}
+							reference={invoice?.numero_facture}
+						/>
+					) : null}
+					{showReconcile ? (
+						<button type="button" className="history-btn primary" onClick={handleReconciliation}>
+							<GitCompare size={16} />
+							Réconciliation
+						</button>
+					) : null}
 				</div>
 			</header>
 

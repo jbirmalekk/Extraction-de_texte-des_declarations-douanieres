@@ -11,14 +11,19 @@ import {
 	XCircle,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import ErpExportButton from '../components/Erp/ErpExportButton';
+import { useAuth } from '../hooks/useAuth';
+import { ERP_EXPORT } from '../utils/erpExport';
 import { formatMoney } from '../utils/compareDisplay';
 import { loadReportContext } from '../utils/reportContext';
+import { isReportConforme } from '../utils/workflowActions';
 import { exportComparisonReportPdf } from '../utils/reconciliationReportPdf';
 import './ReportDetailPage.css';
 
 function ReportDetailPage() {
 	const { invoiceId } = useParams();
 	const navigate = useNavigate();
+	const { user } = useAuth();
 	const [ctx, setCtx] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
@@ -105,11 +110,25 @@ function ReportDetailPage() {
 		);
 	}
 
-	const { invoice, dum, comparisonRows, amountSummary, issueCount, confidence, dossierRef } =
-		ctx;
+	const {
+		invoice,
+		dum,
+		comparisonRows,
+		amountSummary,
+		issueCount,
+		confidence,
+		dossierRef,
+		dumDisplayLine,
+		invoiceDisplayLine,
+	} = ctx;
 	const dev = amountSummary.devise || '';
 	const hasAlert = !amountSummary.aligned || ctx.statutControle === 'error';
 	const hasWarning = ctx.statutControle === 'warning' && !hasAlert;
+	const canCorrectDocuments = !isReportConforme({
+		statutControle: ctx.statutControle,
+		amountAligned: amountSummary.aligned,
+		issueCount,
+	});
 
 	return (
 		<div className="report-detail-page fade-up">
@@ -158,13 +177,24 @@ function ReportDetailPage() {
 								: `Écart de ${formatMoney(amountSummary.ecartAbs, dev)} entre PFN et NET PAY.`)}
 					</p>
 					<div className="report-detail-badges">
-						<span>Facture #{invoice.id}</span>
-						{ctx.dumId ? <span>DUM #{ctx.dumId}</span> : null}
+						<span>{invoiceDisplayLine}</span>
+						{ctx.dumId ? <span>{dumDisplayLine}</span> : null}
 						<span className={`rd-pill rd-pill--${ctx.statutControle || 'neutral'}`}>
 							{ctx.statutControle || '—'}
 						</span>
 					</div>
 				</div>
+			</section>
+
+			<section className="report-doc-ids">
+				<article className="report-doc-id-card">
+					<p className="report-doc-id-label">DUM</p>
+					<p className="report-doc-id-value">{dumDisplayLine}</p>
+				</article>
+				<article className="report-doc-id-card">
+					<p className="report-doc-id-label">Facture fournisseur</p>
+					<p className="report-doc-id-value">{invoiceDisplayLine}</p>
+				</article>
 			</section>
 
 			<div className="report-detail-kpis">
@@ -251,12 +281,12 @@ function ReportDetailPage() {
 							</p>
 						</article>
 						<article>
-							<h3>Pièces jointes consultées</h3>
+							<h3>Documents comparés</h3>
 							<ul>
 								{ctx.attachments.map((a) => (
-									<li key={a.name}>
+									<li key={`${a.label}-${a.line}`}>
 										<FileText size={14} />
-										<span>{a.label}</span> — {a.name}
+										<span>{a.label}</span> — {a.line}
 									</li>
 								))}
 							</ul>
@@ -270,18 +300,22 @@ function ReportDetailPage() {
 						<button type="button" className="rd-btn primary block" onClick={openReconciliation}>
 							Ouvrir la réconciliation
 						</button>
-						<Link
-							to={ctx.dumId ? `/validation?documentId=${ctx.dumId}` : '/validation'}
-							className="rd-btn outline block"
-						>
-							Corriger la DUM
-						</Link>
-						<Link
-							to={`/invoice-validation?invoiceId=${ctx.invoiceId}`}
-							className="rd-btn outline block"
-						>
-							Corriger la facture
-						</Link>
+						{canCorrectDocuments ? (
+							<>
+								<Link
+									to={ctx.dumId ? `/validation?documentId=${ctx.dumId}` : '/validation'}
+									className="rd-btn outline block"
+								>
+									Corriger la DUM
+								</Link>
+								<Link
+									to={`/invoice-validation?invoiceId=${ctx.invoiceId}`}
+									className="rd-btn outline block"
+								>
+									Corriger la facture
+								</Link>
+							</>
+						) : null}
 						<button
 							type="button"
 							className="rd-btn outline block"
@@ -291,6 +325,19 @@ function ReportDetailPage() {
 							<Download size={16} />
 							Télécharger PDF
 						</button>
+						{ctx.invoiceId && ctx.dumId ? (
+							<ErpExportButton
+								kind={ERP_EXPORT.DOSSIER}
+								block
+								invoiceId={ctx.invoiceId}
+								dumId={ctx.dumId}
+								reference={dossierRef}
+								statutControle={ctx.statutControle}
+								isAmountAligned={amountSummary.aligned}
+								isAdmin={user?.role === 'admin'}
+								onError={(msg) => setError(msg)}
+							/>
+						) : null}
 					</div>
 					<div className="report-sidebar-card">
 						<h3>Notes</h3>

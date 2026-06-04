@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import AuthUser, assert_invoice_access, get_current_user
 from app.database import get_db
+from app.models.dum_document import DumDocument
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.invoice_upload_trace import InvoiceUploadTrace
 from app.models.user_ref import UserRef
@@ -33,6 +34,7 @@ from app.services.dum_lookup import (
     document_to_compare_body,
     find_invoice_linked_to_dum,
     merge_compare_body,
+    release_dum_from_other_invoices,
 )
 from app.services.invoice_compare import compare_invoice_with_dum
 from app.services.invoice_extract import extract_invoice_from_bytes
@@ -393,26 +395,48 @@ def _resolve_invoice_owners(db: Session, rows: list[Invoice]) -> dict[int, str]:
     return owners
 
 
+def _resolve_dum_meta_for_invoices(db: Session, rows: list[Invoice]) -> dict[int, dict[str, str | None]]:
+    """Numéro + date DUM depuis la table documents (anciennes factures sans date_declaration_dum)."""
+    dum_ids = {inv.dum_document_id for inv in rows if inv.dum_document_id is not None}
+    if not dum_ids:
+        return {}
+    docs = db.query(DumDocument).filter(DumDocument.id.in_(dum_ids)).all()
+    out: dict[int, dict[str, str | None]] = {}
+    for doc in docs:
+        out[doc.id] = {
+            "numero": (doc.numero_declaration or "").strip() or None,
+            "date": (doc.date_declaration or "").strip() or None,
+        }
+    return out
+
+
 def _invoice_list_items(db: Session, rows: list[Invoice]) -> list[InvoiceListItem]:
     owners = _resolve_invoice_owners(db, rows)
-    return [
-        InvoiceListItem(
-            id=inv.id,
-            fichier_nom=inv.fichier_nom,
-            numero_facture=inv.numero_facture,
-            date_facture=inv.date_facture,
-            net_pay=inv.net_pay,
-            devise=inv.devise,
-            statut=inv.statut,
-            dum_document_id=inv.dum_document_id,
-            numero_declaration_dum=inv.numero_declaration_dum,
-            statut_controle=inv.statut_controle,
-            compared_at=inv.compared_at,
-            created_at=inv.created_at,
-            owner=owners.get(inv.id),
+    dum_meta = _resolve_dum_meta_for_invoices(db, rows)
+    items: list[InvoiceListItem] = []
+    for inv in rows:
+        meta = dum_meta.get(inv.dum_document_id) if inv.dum_document_id else None
+        numero_dum = inv.numero_declaration_dum or (meta.get("numero") if meta else None)
+        date_dum = inv.date_declaration_dum or (meta.get("date") if meta else None)
+        items.append(
+            InvoiceListItem(
+                id=inv.id,
+                fichier_nom=inv.fichier_nom,
+                numero_facture=inv.numero_facture,
+                date_facture=inv.date_facture,
+                net_pay=inv.net_pay,
+                devise=inv.devise,
+                statut=inv.statut,
+                dum_document_id=inv.dum_document_id,
+                numero_declaration_dum=numero_dum,
+                date_declaration_dum=date_dum,
+                statut_controle=inv.statut_controle,
+                compared_at=inv.compared_at,
+                created_at=inv.created_at,
+                owner=owners.get(inv.id),
+            )
         )
-        for inv in rows
-    ]
+    return items
 
 
 @router.get("", response_model=InvoiceListPage)
@@ -646,12 +670,7 @@ def link_invoice_to_dum(
         raise HTTPException(404, "Facture introuvable")
     assert_invoice_access(inv, current_user)
 
-    other = find_invoice_linked_to_dum(db, body.dum_document_id, exclude_invoice_id=invoice_id)
-    if other:
-        raise HTTPException(
-            409,
-            f"Cette DUM (id={body.dum_document_id}) est deja liee a la facture id={other.id}.",
-        )
+    release_dum_from_other_invoices(db, body.dum_document_id, invoice_id)
 
     try:
         doc = assert_dum_available(db, body.dum_document_id)
@@ -660,6 +679,7 @@ def link_invoice_to_dum(
 
     inv.dum_document_id = body.dum_document_id
     inv.numero_declaration_dum = (doc.numero_declaration or "").strip() or None
+    inv.date_declaration_dum = (doc.date_declaration or "").strip() or None
     db.commit()
     db.refresh(inv)
     return _to_invoice_out(inv)
@@ -680,15 +700,14 @@ def compare_with_dum(
 
     merged = merge_compare_body(db, inv, body)
     if merged.dum_document_id and inv.dum_document_id != merged.dum_document_id:
-        other = find_invoice_linked_to_dum(db, merged.dum_document_id, exclude_invoice_id=invoice_id)
-        if other:
-            raise HTTPException(409, f"DUM id={merged.dum_document_id} deja liee a facture id={other.id}.")
+        release_dum_from_other_invoices(db, merged.dum_document_id, invoice_id)
         try:
             doc = assert_dum_available(db, merged.dum_document_id)
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
         inv.dum_document_id = merged.dum_document_id
         inv.numero_declaration_dum = (doc.numero_declaration or "").strip() or None
+        inv.date_declaration_dum = (doc.date_declaration or "").strip() or None
 
     pfn = merged.montant_pfn_dum if merged.montant_pfn_dum is not None else merged.montant_declare_dum
     if pfn is None and inv.dum_document_id:
@@ -707,6 +726,12 @@ def compare_with_dum(
     inv.montant_declare_dum = float(pfn)
     inv.devise_declaree_dum = merged.devise_dum or merged.devise_declaree_dum
     inv.numero_declaration_dum = merged.numero_declaration_dum or inv.numero_declaration_dum
+    if inv.dum_document_id and not inv.date_declaration_dum:
+        try:
+            doc_sync = assert_dum_available(db, inv.dum_document_id)
+            inv.date_declaration_dum = (doc_sync.date_declaration or "").strip() or None
+        except ValueError:
+            pass
     inv.ecart_montant = result.ecart_montant
     inv.ecart_commentaire = result.ecart_commentaire
     inv.statut_controle = result.statut_controle

@@ -57,6 +57,9 @@ const FIXED_ROW_ORDER = [
 	'poids_net_mismatch',
 	'incoterm_mismatch',
 	'numero_declaration',
+	'date_declaration',
+	'numero_facture_row',
+	'date_facture',
 ];
 
 const resolvePfnAmount = (invoiceResult, dumMeta = {}) =>
@@ -189,6 +192,11 @@ export const buildComparisonRows = (invoiceResult, dumMeta = {}, invoiceMeta = {
 		invoiceResult?.numero_declaration_dum ||
 		anomalyMap.declaration_linked?.dum_value ||
 		dumMeta?.numero_declaration;
+	const dateDecl = dumMeta?.date_declaration;
+	const dateFacture =
+		invoiceMeta?.date_facture || invoiceResult?.date_facture;
+	const numFacture =
+		invoiceMeta?.numero_facture || invoiceResult?.numero_facture;
 
 	const rowBuilders = {
 		montant_net_pay_vs_pfn: () => ({
@@ -292,12 +300,39 @@ export const buildComparisonRows = (invoiceResult, dumMeta = {}, invoiceMeta = {
 		},
 		numero_declaration: () => ({
 			code: 'numero_declaration',
-			categorie: 'N° déclaration DUM',
+			categorie: 'N° déclaration (DUM)',
 			dumValue: formatScalar(numDecl),
-			factureValue: formatScalar(invoiceMeta?.numero_facture || invoiceResult?.numero_facture),
+			factureValue: '—',
 			ecart: '—',
 			statut: numDecl ? 'Conforme' : '—',
 			tone: numDecl ? 'ok' : 'neutral',
+		}),
+		date_declaration: () => ({
+			code: 'date_declaration',
+			categorie: 'Date déclaration (DUM)',
+			dumValue: formatScalar(dateDecl),
+			factureValue: '—',
+			ecart: '—',
+			statut: dateDecl ? 'Conforme' : '—',
+			tone: dateDecl ? 'ok' : 'neutral',
+		}),
+		numero_facture_row: () => ({
+			code: 'numero_facture_row',
+			categorie: 'N° facture',
+			dumValue: '—',
+			factureValue: formatScalar(numFacture),
+			ecart: '—',
+			statut: numFacture ? 'Conforme' : '—',
+			tone: numFacture ? 'ok' : 'neutral',
+		}),
+		date_facture: () => ({
+			code: 'date_facture',
+			categorie: 'Date facture',
+			dumValue: '—',
+			factureValue: formatScalar(dateFacture),
+			ecart: '—',
+			statut: dateFacture ? 'Conforme' : '—',
+			tone: dateFacture ? 'ok' : 'neutral',
 		}),
 	};
 

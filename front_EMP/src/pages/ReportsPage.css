@@ -96,17 +96,43 @@
 	border-bottom: 1px solid #e2e8f0;
 }
 
+.reports-col-title {
+	display: flex;
+	flex-direction: column;
+	gap: 0.1rem;
+	line-height: 1.2;
+}
+
+.reports-col-title small {
+	font-weight: 500;
+	font-size: 0.68rem;
+	color: #94a3b8;
+	text-transform: none;
+}
+
+.reports-doc-cell {
+	display: flex;
+	flex-direction: column;
+	gap: 0.12rem;
+	min-width: 0;
+	line-height: 1.25;
+}
+
+.reports-doc-num {
+	font-weight: 700;
+	font-size: 0.9rem;
+	color: #0f172a;
+	word-break: break-word;
+}
+
+.reports-doc-date {
+	font-size: 0.78rem;
+	color: #64748b;
+}
+
 .reports-table-row {
 	border-bottom: 1px solid #f1f5f9;
 	font-size: 0.88rem;
-}
-
-.reports-table-row strong {
-	display: block;
-}
-
-.reports-table-row small {
-	color: #94a3b8;
 }
 
 .reports-amounts {

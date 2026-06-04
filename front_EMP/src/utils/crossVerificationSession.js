@@ -28,6 +28,33 @@ export const clearCrossVerificationSession = () => {
 	localStorage.removeItem(STORAGE_KEY);
 };
 
+/** Nouvelle réconciliation : source seule, sans partenaire ni comparaison précédente. */
+export const beginReconciliationSession = ({
+	sourceType,
+	sourceId,
+	sourceNumero,
+	sourceDate = null,
+	sourceLabel,
+	sourceFileName,
+}) =>
+	saveCrossVerificationSession({
+		sourceType,
+		sourceId,
+		sourceNumero: sourceNumero ?? null,
+		sourceDate,
+		sourceLabel: sourceLabel ?? sourceNumero ?? null,
+		sourceFileName: sourceFileName ?? sourceLabel ?? null,
+		redoReconciliation: true,
+		partnerType: null,
+		partnerId: null,
+		comparisonResult: null,
+		invoiceId: null,
+		dumDocumentId: null,
+		dumPreview: null,
+		invoicePreview: null,
+		pendingPartnerId: null,
+	});
+
 const IMPORT_RETURN_KEY = 'emp_cross_verify_import_return';
 
 /** Mémorise un retour vers la réconciliation après import du document partenaire. */

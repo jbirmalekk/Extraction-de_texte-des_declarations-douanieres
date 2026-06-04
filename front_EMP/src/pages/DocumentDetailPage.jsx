@@ -8,13 +8,16 @@ import {
 	ShieldCheck,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import ErpExportButton from '../components/Erp/ErpExportButton';
 import DetailDocumentPreview from '../components/Detail/DetailDocumentPreview';
+import { ERP_EXPORT } from '../utils/erpExport';
 import DetailFieldsPanel from '../components/Detail/DetailFieldsPanel';
 import { fetchInvoiceByDumId } from '../services/invoiceApi';
 import { fetchDocumentCorrections, fetchDocumentDetail } from '../services/ocrService';
 import { buildDumDetailSections, formatDumStatut } from '../utils/detailDisplay';
-import { saveCrossVerificationSession } from '../utils/crossVerificationSession';
+import { beginReconciliationSession } from '../utils/crossVerificationSession';
 import { hydrateDumContextFromApi } from '../utils/documentContextStorage';
+import { isDumValidated, isReconciliationControlOk } from '../utils/workflowActions';
 
 function DocumentDetailPage() {
 	const { documentId } = useParams();
@@ -29,6 +32,10 @@ function DocumentDetailPage() {
 
 	const dumSections = useMemo(() => buildDumDetailSections(document), [document]);
 	const statusInfo = formatDumStatut(document?.statut);
+	const dumValidated = isDumValidated(document?.statut);
+	const reconOk = isReconciliationControlOk(linkedInvoice?.statut_controle);
+	const reportInvoiceId = linkedInvoice?.id && reconOk ? linkedInvoice.id : null;
+	const showReconcile = !reconOk;
 	const createdLabel = document?.created_at
 		? new Date(document.created_at).toLocaleString('fr-FR')
 		: '—';
@@ -81,7 +88,7 @@ function DocumentDetailPage() {
 	};
 
 	const handleReconciliation = () => {
-		saveCrossVerificationSession({
+		beginReconciliationSession({
 			sourceType: 'dum',
 			sourceId: Number(documentId),
 			sourceNumero: document?.numero_declaration,
@@ -106,18 +113,44 @@ function DocumentDetailPage() {
 					</p>
 				</div>
 				<div className="detail-hero-actions detail-hero-actions--row">
-					<button
-						type="button"
-						className="history-btn outline"
-						onClick={openValidation}
-						disabled={openingValidation}
-					>
-						{openingValidation ? 'Chargement…' : 'Validation DUM'}
-					</button>
-					<button type="button" className="history-btn primary" onClick={handleReconciliation}>
-						<GitCompare size={16} />
-						Réconciliation
-					</button>
+					{!dumValidated ? (
+						<button
+							type="button"
+							className="history-btn outline"
+							onClick={openValidation}
+							disabled={openingValidation}
+						>
+							{openingValidation ? 'Chargement…' : 'Validation DUM'}
+						</button>
+					) : null}
+					{reportInvoiceId ? (
+						<>
+							<Link to={`/reports/${reportInvoiceId}`} className="history-btn primary">
+								Voir le rapport
+							</Link>
+							<ErpExportButton
+								kind={ERP_EXPORT.DOSSIER}
+								invoiceId={reportInvoiceId}
+								dumId={Number(documentId)}
+								reference={document?.numero_declaration}
+								statutControle={linkedInvoice?.statut_controle}
+								isAmountAligned={linkedInvoice?.statut_controle === 'ok'}
+							/>
+						</>
+					) : null}
+					{dumValidated && !reportInvoiceId ? (
+						<ErpExportButton
+							kind={ERP_EXPORT.DUM}
+							dumId={Number(documentId)}
+							reference={document?.numero_declaration}
+						/>
+					) : null}
+					{showReconcile ? (
+						<button type="button" className="history-btn primary" onClick={handleReconciliation}>
+							<GitCompare size={16} />
+							Réconciliation
+						</button>
+					) : null}
 				</div>
 			</header>
 

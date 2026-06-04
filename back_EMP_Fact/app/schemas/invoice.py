@@ -146,6 +146,7 @@ class InvoiceListItem(BaseModel):
     statut: str = "extracted"
     dum_document_id: int | None = None
     numero_declaration_dum: str | None = None
+    date_declaration_dum: str | None = None
     statut_controle: str | None = None
     compared_at: datetime | None = None
     created_at: datetime | None = None

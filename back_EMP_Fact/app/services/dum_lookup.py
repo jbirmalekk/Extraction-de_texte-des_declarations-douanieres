@@ -89,3 +89,33 @@ def find_invoice_linked_to_dum(db: Session, dum_document_id: int, exclude_invoic
     if exclude_invoice_id is not None:
         q = q.filter(Invoice.id != exclude_invoice_id)
     return q.first()
+
+
+def clear_invoice_dum_link(inv: Invoice) -> None:
+    """Rompt la liaison facture ↔ DUM et efface le résultat de contrôle associé."""
+    inv.dum_document_id = None
+    inv.numero_declaration_dum = None
+    inv.date_declaration_dum = None
+    inv.montant_declare_dum = None
+    inv.devise_declaree_dum = None
+    inv.ecart_montant = None
+    inv.ecart_commentaire = None
+    inv.statut_controle = None
+    inv.compared_at = None
+    inv.controle_anomalies_json = None
+
+
+def release_dum_from_other_invoices(
+    db: Session, dum_document_id: int, keep_invoice_id: int
+) -> None:
+    """Réaffectation 1–1 : délie les autres factures pointant vers cette DUM."""
+    others = (
+        db.query(Invoice)
+        .filter(
+            Invoice.dum_document_id == dum_document_id,
+            Invoice.id != keep_invoice_id,
+        )
+        .all()
+    )
+    for other in others:
+        clear_invoice_dum_link(other)

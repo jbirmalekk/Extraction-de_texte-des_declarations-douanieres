@@ -1,6 +1,11 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatMoney } from './compareDisplay';
+import {
+	buildDumDisplayLine,
+	buildInvoiceDisplayLine,
+	buildReconciliationPairRef,
+} from './crossVerifyDisplay';
 
 const formatDateFr = (iso) => {
 	if (!iso) {
@@ -39,6 +44,10 @@ export const exportComparisonReportPdf = ({
 	const statut = comparison?.statut_controle || '—';
 	const invId = invoiceDetail?.id ?? comparison?.id;
 	const dumId = dumDetail?.id ?? comparison?.dum_document_id;
+	const dumLine = buildDumDisplayLine(dumDetail, comparison, dumId);
+	const invoiceLine = buildInvoiceDisplayLine(invoiceDetail, comparison, invId);
+	const pairRef =
+		dossierRef || buildReconciliationPairRef(dumDetail, invoiceDetail, comparison);
 
 	// En-tête
 	doc.setFillColor(37, 99, 235);
@@ -51,7 +60,12 @@ export const exportComparisonReportPdf = ({
 	doc.setFontSize(10);
 	doc.text('Rapport de vérification croisée DUM — Facture fournisseur', 14, 20);
 
-	let y = 40;
+	let y = 36;
+	doc.setFontSize(8);
+	doc.text(`DUM : ${dumLine}`, 14, y);
+	y += 5;
+	doc.text(`Facture : ${invoiceLine}`, 14, y);
+	y = 44;
 
 	// Bandeau alerte
 	if (!aligned || statut === 'error') {
@@ -76,7 +90,7 @@ export const exportComparisonReportPdf = ({
 		doc.text('Attention : points à vérifier (montants OK)', 18, y + 8);
 		doc.setFont('helvetica', 'normal');
 		doc.setFontSize(9);
-		doc.text(dossierRef || '', 18, y + 14);
+		doc.text(pairRef, 18, y + 14);
 		y += 26;
 	} else {
 		doc.setFillColor(240, 253, 244);
@@ -196,13 +210,9 @@ export const exportComparisonReportPdf = ({
 	doc.setTextColor(100, 116, 139);
 	doc.text(`Généré le ${formatDateFr(new Date().toISOString())} — EMP SmartOCR PFE`, 14, footY);
 	footY += 5;
-	if (dumDetail?.fichier || invoiceDetail?.fichier_nom) {
-		doc.text(
-			`Pièces : ${[dumDetail?.fichier, invoiceDetail?.fichier_nom].filter(Boolean).join(' · ')}`,
-			14,
-			footY
-		);
-	}
+	doc.text(`DUM : ${dumLine}`, 14, footY);
+	footY += 4;
+	doc.text(`Facture : ${invoiceLine}`, 14, footY);
 
 	doc.save(`rapport_verification_${fileSlug(comparison, invId)}.pdf`);
 };

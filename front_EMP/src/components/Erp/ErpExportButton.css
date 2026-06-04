@@ -1,0 +1,58 @@
+.erp-export-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.45rem;
+	padding: 0.55rem 1rem;
+	font-size: 0.88rem;
+	font-weight: 600;
+	border-radius: 10px;
+	border: 1px solid #a78bfa;
+	background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%);
+	color: #5b21b6;
+	cursor: pointer;
+	transition: background 0.15s, box-shadow 0.15s;
+}
+
+.erp-export-btn:hover:not(:disabled) {
+	background: #ddd6fe;
+	box-shadow: 0 8px 20px -14px rgba(91, 33, 182, 0.55);
+}
+
+.erp-export-btn:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.erp-export-btn--block {
+	width: 100%;
+}
+
+.erp-export-btn--dossier {
+	border-color: #7c3aed;
+	background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%);
+	color: #fff;
+}
+
+.erp-export-btn--dossier:hover:not(:disabled) {
+	background: linear-gradient(180deg, #6d28d9 0%, #5b21b6 100%);
+}
+
+.validation-actions-primary .erp-export-btn,
+.cross-verify-actions .erp-export-btn--dossier {
+	min-height: 42px;
+}
+
+.history-actions-cell .erp-export-btn {
+	padding: 0.35rem 0.65rem;
+	font-size: 0.78rem;
+	border-radius: 8px;
+}
+
+.detail-hero-actions .erp-export-btn {
+	min-width: 10rem;
+}
+
+.report-detail-sidebar .erp-export-btn--block {
+	margin-top: 0.35rem;
+}

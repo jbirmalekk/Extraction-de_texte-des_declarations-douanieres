@@ -13,7 +13,9 @@ import {
 	ZoomOut,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import ErpExportButton from '../components/Erp/ErpExportButton';
 import WorkflowBreadcrumb from '../components/Workflow/WorkflowBreadcrumb';
+import { ERP_EXPORT } from '../utils/erpExport';
 import { fetchLatestOcrCorrections, validateOcrDocument } from '../services/ocrService';
 import { useValidationDraft } from '../hooks/useValidationDraft';
 import { buildBackendValidationPayload } from '../utils/ocrFields';
@@ -182,6 +184,7 @@ function ValidationPage() {
 	const [toast, setToast] = useState(null);
 	const [isFinalValidating, setIsFinalValidating] = useState(false);
 	const [isCrossVerifying, setIsCrossVerifying] = useState(false);
+	const [readyForErp, setReadyForErp] = useState(false);
 	const [zoom, setZoom] = useState(100);
 	const [rotation, setRotation] = useState(0);
 	const [showOnlyNeedsCorrection, setShowOnlyNeedsCorrection] = useState(false);
@@ -426,11 +429,12 @@ function ValidationPage() {
 		setIsFinalValidating(true);
 		try {
 			await persistDumToBackend('valide');
-			showToast('success', 'Document validé avec succès ! Prêt pour l\'exportation ERP.');
-
-			timeoutRef.current = window.setTimeout(() => {
-				navigate('/erp-success');
-			}, 1500);
+			setReadyForErp(true);
+			showToast(
+				'success',
+				'DUM validée. Vous pouvez l’envoyer vers l’ERP ou lancer la vérification croisée.'
+			);
+			setIsFinalValidating(false);
 		} catch (error) {
 			showToast('error', error?.response?.data?.detail || error?.message || 'Validation finale echouee, veuillez reessayer.');
 			setIsFinalValidating(false);
@@ -835,13 +839,23 @@ function ValidationPage() {
 									<CheckCircle2 size={16} className={isFinalValidating ? 'pulse-check' : ''} />
 									{isFinalValidating ? 'Validation…' : 'Valider DUM'}
 								</button>
+								<ErpExportButton
+									kind={ERP_EXPORT.DUM}
+									documentId={payload?.backendId}
+									dumId={payload?.backendId}
+									reference={
+										fields.find((f) => f.key === 'numero_declaration')?.value ||
+										payload?.documentId
+									}
+									disabled={!readyForErp || isFinalValidating || isCrossVerifying}
+								/>
 							</div>
 						</div>
 						<p className="validation-actions-help">
 							<strong>Annuler</strong> : quitter vers les résultats OCR.{' '}
 							<strong>Enregistrer brouillon</strong> : sauvegarde locale (auto toutes les 30 s si
 							modifications). <strong>Vérification croisée</strong> : enregistre puis ouvre la
-							réconciliation facture.
+							réconciliation facture. <strong>Envoyer DUM vers ERP</strong> : après validation.
 						</p>
 					</div>
 				</section>

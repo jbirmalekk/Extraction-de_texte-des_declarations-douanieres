@@ -209,6 +209,28 @@
 	box-shadow: 0 8px 20px -14px rgba(109, 40, 217, 0.45);
 }
 
+.history-actions-cell .table-action--report {
+	color: #0f766e;
+	border-color: #5eead4;
+	background: #f0fdfa;
+}
+
+.history-actions-cell .table-action--report:hover {
+	background: #ccfbf1;
+	box-shadow: 0 8px 20px -14px rgba(15, 118, 110, 0.45);
+}
+
+.history-actions-cell .table-action--erp {
+	color: #5b21b6;
+	border-color: #c4b5fd;
+	background: #f5f3ff;
+}
+
+.history-actions-cell .table-action--erp:hover:not(:disabled) {
+	background: #ede9fe;
+	box-shadow: 0 8px 20px -14px rgba(91, 33, 182, 0.45);
+}
+
 .history-corr-cell {
 	font-size: 0.85rem;
 }

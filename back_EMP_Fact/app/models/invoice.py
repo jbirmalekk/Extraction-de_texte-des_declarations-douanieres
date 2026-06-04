@@ -56,6 +56,7 @@ class Invoice(Base):
     statut: Mapped[str] = mapped_column(String(32), default="extracted")
 
     numero_declaration_dum: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    date_declaration_dum: Mapped[str | None] = mapped_column(String(32), nullable=True)
     montant_declare_dum: Mapped[float | None] = mapped_column(Float, nullable=True)
     devise_declaree_dum: Mapped[str | None] = mapped_column(String(8), nullable=True)
     ecart_montant: Mapped[float | None] = mapped_column(Float, nullable=True)

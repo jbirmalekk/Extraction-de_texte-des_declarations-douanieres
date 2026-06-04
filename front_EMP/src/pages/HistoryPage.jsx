@@ -25,12 +25,85 @@ import {
 	filterHistoryRows,
 	mergeHistoryRows,
 } from '../utils/historyUnified';
-import { saveCrossVerificationSession } from '../utils/crossVerificationSession';
+import { beginReconciliationSession } from '../utils/crossVerificationSession';
 import {
 	hydrateDumContextFromApi,
 	hydrateInvoiceContextFromApi,
 } from '../utils/documentContextStorage';
+import ErpExportButton from '../components/Erp/ErpExportButton';
+import {
+	getHistoryErpExportTarget,
+	historyReportInvoiceId,
+	showHistoryErpExportButton,
+	showHistoryReconcileButton,
+	showHistoryReportLink,
+	showHistoryValidationButton,
+} from '../utils/workflowActions';
 import './HistoryPage.css';
+
+function HistoryRowActions({
+	row,
+	openingValidationId,
+	onOpenValidation,
+	onStartCrossVerify,
+	isAdmin,
+	onErpError,
+}) {
+	const reportInvoiceId = historyReportInvoiceId(row);
+	const erpTarget = getHistoryErpExportTarget(row);
+	const detailTo = row.type === 'dum' ? `/documents/${row.dumId}` : `/invoices/${row.invoiceId}`;
+
+	return (
+		<>
+			<Link className="table-action table-action--detail" to={detailTo}>
+				Détail
+			</Link>
+			{showHistoryValidationButton(row) ? (
+				<button
+					type="button"
+					className="table-action table-action--btn table-action--validation"
+					disabled={openingValidationId === row.id}
+					onClick={() => onOpenValidation(row)}
+				>
+					{openingValidationId === row.id ? 'Chargement…' : 'Validation'}
+				</button>
+			) : null}
+			{showHistoryReportLink(row) ? (
+				<Link
+					className="table-action table-action--btn table-action--report"
+					to={`/reports/${reportInvoiceId}`}
+				>
+					Voir le rapport
+				</Link>
+			) : null}
+			{showHistoryReconcileButton(row) ? (
+				<button
+					type="button"
+					className="table-action table-action--btn table-action--reconcile"
+					onClick={() => onStartCrossVerify(row)}
+				>
+					Réconciliation
+				</button>
+			) : null}
+			{showHistoryErpExportButton(row) && erpTarget ? (
+				<ErpExportButton
+					kind={erpTarget.kind}
+					invoiceId={erpTarget.invoiceId}
+					dumId={erpTarget.dumId}
+					documentId={erpTarget.documentId}
+					reference={erpTarget.reference}
+					statutControle={erpTarget.statutControle}
+					isAmountAligned={erpTarget.isAmountAligned !== false}
+					isAdmin={isAdmin}
+					onError={onErpError}
+					className="table-action table-action--btn table-action--erp"
+				>
+					ERP
+				</ErpExportButton>
+			) : null}
+		</>
+	);
+}
 
 function HistoryPage() {
 	const navigate = useNavigate();
@@ -277,7 +350,7 @@ function HistoryPage() {
 
 	const startCrossVerify = (row) => {
 		if (row.type === 'dum') {
-			saveCrossVerificationSession({
+			beginReconciliationSession({
 				sourceType: 'dum',
 				sourceId: row.dumId,
 				sourceNumero: row.reference,
@@ -286,7 +359,7 @@ function HistoryPage() {
 				sourceFileName: row.fileName || row.reference,
 			});
 		} else {
-			saveCrossVerificationSession({
+			beginReconciliationSession({
 				sourceType: 'invoice',
 				sourceId: row.invoiceId,
 				sourceNumero: row.reference,
@@ -474,55 +547,14 @@ function HistoryPage() {
 									{row.correctionsCount}
 								</span>
 								<span className="history-actions-cell">
-									{row.type === 'dum' ? (
-										<>
-											<Link
-												className="table-action table-action--detail"
-												to={`/documents/${row.dumId}`}
-											>
-												Détail
-											</Link>
-											<button
-												type="button"
-												className="table-action table-action--btn table-action--validation"
-												disabled={openingValidationId === row.id}
-												onClick={() => openValidation(row)}
-											>
-												{openingValidationId === row.id ? 'Chargement…' : 'Validation'}
-											</button>
-											<button
-												type="button"
-												className="table-action table-action--btn table-action--reconcile"
-												onClick={() => startCrossVerify(row)}
-											>
-												Réconciliation
-											</button>
-										</>
-									) : (
-										<>
-											<Link
-												className="table-action table-action--detail"
-												to={`/invoices/${row.invoiceId}`}
-											>
-												Détail
-											</Link>
-											<button
-												type="button"
-												className="table-action table-action--btn table-action--validation"
-												disabled={openingValidationId === row.id}
-												onClick={() => openValidation(row)}
-											>
-												{openingValidationId === row.id ? 'Chargement…' : 'Validation'}
-											</button>
-											<button
-												type="button"
-												className="table-action table-action--btn table-action--reconcile"
-												onClick={() => startCrossVerify(row)}
-											>
-												Réconciliation
-											</button>
-										</>
-									)}
+									<HistoryRowActions
+										row={row}
+										openingValidationId={openingValidationId}
+										onOpenValidation={openValidation}
+										onStartCrossVerify={startCrossVerify}
+										isAdmin={isAdmin}
+										onErpError={setError}
+									/>
 								</span>
 							</div>
 						))

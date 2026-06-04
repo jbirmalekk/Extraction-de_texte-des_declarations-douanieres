@@ -10,7 +10,9 @@ import {
 	ZoomOut,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import ErpExportButton from '../components/Erp/ErpExportButton';
 import WorkflowBreadcrumb from '../components/Workflow/WorkflowBreadcrumb';
+import { ERP_EXPORT } from '../utils/erpExport';
 import {
 	createInvoiceFromUpload,
 	fetchInvoiceById,
@@ -144,6 +146,7 @@ function InvoiceValidationPage() {
 	const [fields, setFields] = useState([]);
 	const [toast, setToast] = useState(null);
 	const [isFinalValidating, setIsFinalValidating] = useState(false);
+	const [readyForErp, setReadyForErp] = useState(false);
 	const [isCrossVerifying, setIsCrossVerifying] = useState(false);
 	const [resolvedInvoiceId, setResolvedInvoiceId] = useState(routeInvoiceId);
 	const [invoiceMeta, setInvoiceMeta] = useState(null);
@@ -426,7 +429,7 @@ function InvoiceValidationPage() {
 		{ n: 1, label: 'Enregistrer en base', done: hasBackendLink, active: invoiceBackendMissing },
 		{ n: 2, label: 'Corriger les champs', done: hasBackendLink && !isDirty, active: hasBackendLink },
 		{ n: 3, label: 'Réconciliation DUM', done: false, active: false },
-		{ n: 4, label: 'Export ERP', done: false, active: false },
+		{ n: 4, label: 'Export ERP', done: readyForErp, active: readyForErp },
 	];
 	const documentLabel = payload?.documentId ?? resolvedInvoiceId ?? 'Facture';
 	const connectionLabel = hasBackendLink
@@ -546,11 +549,12 @@ function InvoiceValidationPage() {
 		setIsFinalValidating(true);
 		try {
 			await persistInvoiceToBackend({ markValidated: true });
-			showToast('success', 'Facture validee avec succes !');
-
-			timeoutRef.current = window.setTimeout(() => {
-				navigate('/erp-success');
-			}, 1500);
+			setReadyForErp(true);
+			showToast(
+				'success',
+				'Facture validée. Envoyez-la vers l’ERP ou lancez la vérification croisée.'
+			);
+			setIsFinalValidating(false);
 		} catch (error) {
 			const detail = error?.response?.data?.detail;
 			showToast(
@@ -1064,12 +1068,26 @@ function InvoiceValidationPage() {
 									<CheckCircle2 size={16} className={isFinalValidating ? 'pulse-check' : ''} />
 									{isFinalValidating ? 'Validation…' : 'Valider la facture'}
 								</button>
+								<ErpExportButton
+									kind={ERP_EXPORT.INVOICE}
+									invoiceId={resolvedInvoiceId || payload?.backendId}
+									reference={
+										fields.find((f) => f.key === 'numero_facture')?.value ||
+										payload?.documentId
+									}
+									disabled={
+										!readyForErp ||
+										isFinalValidating ||
+										isCrossVerifying ||
+										!hasBackendLink
+									}
+								/>
 							</div>
 						</div>
 						<p className="validation-actions-help">
 							<strong>Étape 1</strong> : enregistrez la facture en base si nécessaire.{' '}
 							<strong>Enregistrer brouillon</strong> : sauvegarde locale (auto toutes les 30 s).{' '}
-							<strong>Annuler</strong> : retour aux résultats OCR sans valider.
+							<strong>Envoyer facture vers ERP</strong> : après validation.
 						</p>
 					</div>
 				</section>

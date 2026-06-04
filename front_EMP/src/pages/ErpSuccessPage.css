@@ -1,0 +1,92 @@
+.erp-success-page {
+	max-width: 640px;
+	margin: 0 auto;
+	padding: 1.5rem 1rem 2rem;
+}
+
+.erp-success-card {
+	text-align: center;
+	padding: 2rem 1.4rem;
+	border-radius: 16px;
+	border: 1px solid #e2e8f0;
+	background: #fff;
+	box-shadow: 0 12px 40px -24px rgba(15, 23, 42, 0.2);
+}
+
+.erp-success-icon-wrap {
+	position: relative;
+	display: inline-flex;
+	margin-bottom: 0.75rem;
+}
+
+.erp-success-icon-muted {
+	color: #c4b5fd;
+}
+
+.erp-success-icon-ok {
+	position: absolute;
+	right: -6px;
+	bottom: -4px;
+	color: #16a34a;
+}
+
+.erp-success-card h1 {
+	margin: 0;
+	font-size: 1.45rem;
+	color: #0f172a;
+}
+
+.erp-success-message {
+	margin: 0.75rem auto 0.5rem;
+	max-width: 52ch;
+	color: #475569;
+	line-height: 1.5;
+}
+
+.erp-success-hint {
+	margin: 0 auto 0.35rem;
+	max-width: 52ch;
+	font-size: 0.88rem;
+	color: #64748b;
+}
+
+.erp-success-meta {
+	font-size: 0.82rem;
+	color: #94a3b8;
+	margin: 0 0 1.2rem;
+}
+
+.erp-success-actions {
+	display: flex;
+	gap: 0.65rem;
+	justify-content: center;
+	flex-wrap: wrap;
+	margin-top: 1rem;
+}
+
+.erp-success-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.55rem 1rem;
+	border-radius: 10px;
+	font-weight: 600;
+	font-size: 0.9rem;
+	text-decoration: none;
+}
+
+.erp-success-btn.ghost {
+	border: 1px solid #cbd5e1;
+	color: #334155;
+	background: #f8fafc;
+}
+
+.erp-success-btn.primary {
+	border: 1px solid #2563eb;
+	background: #2563eb;
+	color: #fff;
+}
+
+.erp-success-btn:hover {
+	filter: brightness(0.97);
+}

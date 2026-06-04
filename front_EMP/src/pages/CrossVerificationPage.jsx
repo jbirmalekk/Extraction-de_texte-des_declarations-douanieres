@@ -8,7 +8,6 @@ import {
 	FileUp,
 	Download,
 	RefreshCw,
-	ShieldCheck,
 	XCircle,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -22,6 +21,8 @@ import {
 } from '../services/invoiceApi';
 import { fetchDocumentDetail, fetchOcrDocuments } from '../services/ocrService';
 import DocumentPreviewPanel from '../components/CrossVerify/DocumentPreviewPanel';
+import ErpExportButton from '../components/Erp/ErpExportButton';
+import { ERP_EXPORT } from '../utils/erpExport';
 import {
 	buildComparisonRows,
 	formatMoney,
@@ -29,10 +30,12 @@ import {
 	isMontantAligned,
 } from '../utils/compareDisplay';
 import { exportComparisonReportPdf } from '../utils/reconciliationReportPdf';
-import { countComparisonIssues, buildDossierRef } from '../utils/reportContext';
+import { countComparisonIssues } from '../utils/reportContext';
+import { buildReconciliationPairRef } from '../utils/crossVerifyDisplay';
 import { loadCrossVerifyPreviews } from '../utils/compareDocumentPreview';
 import {
 	buildLinkedDumSuffix,
+	buildLinkedInvoiceSuffix,
 	indexDumDocsById,
 	resolveSourceRegisteredLine,
 } from '../utils/crossVerifyDisplay';
@@ -42,6 +45,7 @@ import {
 	saveCrossVerificationSession,
 	updateCrossVerificationSession,
 } from '../utils/crossVerificationSession';
+import { buildInvoiceByDumMap } from '../utils/historyUnified';
 import './CrossVerificationPage.css';
 import '../components/Workflow/WorkflowBreadcrumb.css';
 
@@ -223,6 +227,14 @@ function CrossVerificationPage() {
 	}, [session?.pendingPartnerId]);
 
 	useEffect(() => {
+		if (session?.redoReconciliation) {
+			setPhase('select');
+			setPartnerId('');
+			setComparison(null);
+			setDumPreview(null);
+			setInvoicePreview(null);
+			return undefined;
+		}
 		if (!session?.partnerId || !session?.comparisonResult) {
 			return undefined;
 		}
@@ -264,9 +276,16 @@ function CrossVerificationPage() {
 		return () => {
 			cancelled = true;
 		};
-	}, [session?.partnerId, session?.comparisonResult, session?.sourceType, session?.sourceId]);
+	}, [
+		session?.redoReconciliation,
+		session?.partnerId,
+		session?.comparisonResult,
+		session?.sourceType,
+		session?.sourceId,
+	]);
 
 	const dumById = useMemo(() => indexDumDocsById(dumDocs), [dumDocs]);
+	const invoiceByDumId = useMemo(() => buildInvoiceByDumMap(invoices), [invoices]);
 
 	const sourceRegisteredLine = useMemo(
 		() =>
@@ -364,6 +383,7 @@ function CrossVerificationPage() {
 				comparisonResult: result,
 				dumPreview: dumPrev,
 				invoicePreview: invPrev,
+				redoReconciliation: false,
 			});
 			setSession(nextSession);
 			setPhase('compare');
@@ -461,50 +481,10 @@ function CrossVerificationPage() {
 			invoiceDetail,
 			comparisonRows,
 			amountSummary,
-			dossierRef: buildDossierRef(comparison, dumDetail),
+			dossierRef: buildReconciliationPairRef(dumDetail, invoiceDetail, comparison),
 			confidence: dumDetail?.score_confiance ?? null,
 			issueCount: countComparisonIssues(comparisonRows),
 		});
-	};
-
-	const handleValidateConformity = () => {
-		const statut = comparison?.statut_controle;
-		const isAdmin = user?.role === 'admin';
-
-		if (!isAmountAligned) {
-			setError(
-				'Conformité montants refusée : PFN DUM et NET PAY facture ne correspondent pas. Corrigez les documents ou recomparez.'
-			);
-			return;
-		}
-
-		if (statut === 'error' && !isAdmin) {
-			setError(
-				'Export ERP impossible : écarts critiques (statut contrôle « error »). Corrigez la DUM ou la facture, ou demandez un override administrateur.'
-			);
-			return;
-		}
-
-		if (statut === 'error' && isAdmin) {
-			const confirmed = window.confirm(
-				'Écarts critiques détectés. En tant qu\'administrateur, confirmez-vous l\'export ERP malgré les écarts ?'
-			);
-			if (!confirmed) {
-				return;
-			}
-		}
-
-		if (statut === 'warning') {
-			const confirmed = window.confirm(
-				'Des points d\'attention subsistent (poids, incoterm, etc.). Confirmez-vous l\'export ERP ?'
-			);
-			if (!confirmed) {
-				return;
-			}
-		}
-
-		setError('');
-		navigate('/erp-success');
 	};
 
 	const handleCancel = () => {
@@ -571,7 +551,8 @@ function CrossVerificationPage() {
 					<p className="cross-verify-help">
 						Votre {sourceType === 'dum' ? 'DUM' : 'facture'} est déjà enregistrée. Sélectionnez le{' '}
 						{partnerKind === 'invoice' ? 'document facture' : 'document DUM'} à rapprocher, puis
-						lancez la comparaison.
+						lancez la comparaison. Vous pouvez choisir un autre partenaire même si un lien existe
+						déjà (l&apos;ancienne liaison sera remplacée).
 					</p>
 
 					<div className="cross-verify-source-pill">
@@ -701,7 +682,11 @@ function CrossVerificationPage() {
 							preview={dumPreview}
 							loading={previewsLoading && !dumPreview?.dataUrl}
 							error={previewErrors.dum}
-							editLink="/validation"
+							editLink={
+								isFullyAligned || !dumId
+									? undefined
+									: `/validation?documentId=${dumId}`
+							}
 							editLabel="Corriger la DUM"
 						/>
 						<DocumentPreviewPanel
@@ -714,7 +699,11 @@ function CrossVerificationPage() {
 							preview={invoicePreview}
 							loading={previewsLoading && !invoicePreview?.dataUrl}
 							error={previewErrors.invoice}
-							editLink="/invoice-validation"
+							editLink={
+								isFullyAligned || !invoiceId
+									? undefined
+									: `/invoice-validation?invoiceId=${invoiceId}`
+							}
 							editLabel="Corriger la facture"
 						/>
 					</section>
@@ -834,11 +823,19 @@ function CrossVerificationPage() {
 								type="button"
 								className="cross-verify-btn ghost"
 								onClick={() => {
+									updateCrossVerificationSession({
+										partnerId: null,
+										comparisonResult: null,
+										redoReconciliation: true,
+									});
+									setPartnerId('');
 									setPhase('select');
 									setComparison(null);
+									setDumPreview(null);
+									setInvoicePreview(null);
 								}}
 							>
-								Changer de document
+								Changer de partenaire
 							</button>
 							<button
 								type="button"
@@ -849,28 +846,28 @@ function CrossVerificationPage() {
 								<Download size={16} />
 								Exporter PDF
 							</button>
-							<button
-								type="button"
-								className="cross-verify-btn primary"
-								onClick={handleValidateConformity}
-								disabled={isWorking || !isAmountAligned}
-								title={
-									!isAmountAligned
-										? 'Les montants PFN et NET PAY doivent être alignés'
-										: comparison?.statut_controle === 'error' && user?.role !== 'admin'
-											? 'Écarts critiques : correction ou override admin requis'
-											: undefined
-								}
-							>
-								<ShieldCheck size={16} />
-								Valider la conformité
-							</button>
+							<ErpExportButton
+								kind={ERP_EXPORT.DOSSIER}
+								invoiceId={invoiceId}
+								dumId={dumId}
+								reference={buildReconciliationPairRef(
+									dumDetail,
+									invoiceDetail,
+									comparison
+								)}
+								statutControle={comparison?.statut_controle}
+								isAmountAligned={isAmountAligned}
+								isAdmin={user?.role === 'admin'}
+								disabled={isWorking}
+								onError={setError}
+								className="cross-verify-btn primary erp-export-btn--dossier"
+							/>
 						</div>
 						<p className="cross-verify-actions-help">
-							<strong>Changer de document</strong> : nouvelle comparaison sans quitter.{' '}
+							<strong>Changer de partenaire</strong> : nouvelle comparaison (autre DUM ou facture).{' '}
 							<strong>Annuler</strong> : abandonne la réconciliation.{' '}
 							<strong>Télécharger le rapport</strong> : CSV du contrôle.{' '}
-							<strong>Valider la conformité</strong> : uniquement si PFN = NET PAY (bloqué sinon).
+							<strong>Exporter dossier vers ERP</strong> : DUM + facture + contrôle (PFN = NET PAY requis).
 						</p>
 					</footer>
 				</>

@@ -93,6 +93,7 @@ def _migrate_invoices() -> None:
             ("extraction_warnings_json", "NVARCHAR(MAX) NULL", "TEXT"),
             ("field_confidence_json", "NVARCHAR(MAX) NULL", "TEXT"),
             ("numero_declaration_dum", "NVARCHAR(32) NULL", "TEXT"),
+            ("date_declaration_dum", "NVARCHAR(32) NULL", "TEXT"),
             ("montant_declare_dum", "FLOAT NULL", "REAL"),
             ("devise_declaree_dum", "NVARCHAR(8) NULL", "TEXT"),
             ("ecart_montant", "FLOAT NULL", "REAL"),

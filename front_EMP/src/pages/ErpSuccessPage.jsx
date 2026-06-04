@@ -1,21 +1,54 @@
-import { CheckCircle2, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { CheckCircle2, ArrowRight, Database } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import {
+	ERP_EXPORT,
+	getErpSuccessMessage,
+	getErpSuccessTitle,
+} from '../utils/erpExport';
+import './ErpSuccessPage.css';
 
 function ErpSuccessPage() {
+	const location = useLocation();
+	const erp = location.state?.erpExport;
+	const kind = erp?.kind || ERP_EXPORT.DUM;
+	const title = getErpSuccessTitle(kind);
+	const message = getErpSuccessMessage(kind, erp?.reference);
+
 	return (
-		<div className="validation-page fade-up">
-			<section className="validation-card" style={{ textAlign: 'center', padding: '2rem 1.2rem' }}>
-				<CheckCircle2 size={56} color="#16a34a" style={{ marginBottom: '0.8rem' }} />
-				<h1 style={{ margin: 0, color: '#0f172a' }}>Validation terminee avec succes</h1>
-				<p style={{ margin: '0.7rem auto 1.2rem', maxWidth: '58ch', color: '#475569' }}>
-					Le document est pret pour l'exportation ERP. Vous pouvez consulter l'historique ou continuer
-					avec un nouveau document.
+		<div className="erp-success-page fade-up">
+			<section className="erp-success-card">
+				<div className="erp-success-icon-wrap">
+					<Database size={28} className="erp-success-icon-muted" />
+					<CheckCircle2 size={52} className="erp-success-icon-ok" />
+				</div>
+				<h1>{title}</h1>
+				<p className="erp-success-message">{message}</p>
+				<p className="erp-success-hint">
+					Intégration simulée — l’appel API Uniges sera branché ici (export{' '}
+					<strong>
+						{kind === ERP_EXPORT.DOSSIER
+							? 'dossier complet'
+							: kind === ERP_EXPORT.INVOICE
+								? 'facture seule'
+								: 'DUM seule'}
+					</strong>
+					).
 				</p>
-				<div style={{ display: 'flex', gap: '0.7rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-					<Link to="/history" className="history-link-btn">
+				{erp?.exportedAt ? (
+					<p className="erp-success-meta">
+						Horodatage : {new Date(erp.exportedAt).toLocaleString('fr-FR')}
+					</p>
+				) : null}
+				<div className="erp-success-actions">
+					<Link to="/history" className="erp-success-btn ghost">
 						Historique
 					</Link>
-					<Link to="/import" className="history-link-btn">
+					{kind === ERP_EXPORT.DOSSIER && erp?.invoiceId ? (
+						<Link to={`/reports/${erp.invoiceId}`} className="erp-success-btn ghost">
+							Voir le rapport
+						</Link>
+					) : null}
+					<Link to="/import" className="erp-success-btn primary">
 						Nouveau document <ArrowRight size={14} />
 					</Link>
 				</div>

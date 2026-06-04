@@ -3,7 +3,17 @@ import { Eye, GitCompare, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { fetchInvoicesList } from '../services/invoiceApi';
+import { buildCompactDocParts } from '../utils/crossVerifyDisplay';
 import { formatHistoryDateTime } from '../utils/historyUnified';
+
+function ReportsDocCell({ numero, date }) {
+	return (
+		<span className="reports-doc-cell">
+			<span className="reports-doc-num">{numero}</span>
+			{date ? <span className="reports-doc-date">{date}</span> : null}
+		</span>
+	);
+}
 import './ReportsPage.css';
 
 const controleLabel = (sc) => {
@@ -49,11 +59,19 @@ function ReportsPage() {
 		() =>
 			items.map((inv) => ({
 				id: inv.id,
-				numeroFacture: inv.numero_facture || `FACT-${inv.id}`,
+				facture: buildCompactDocParts(
+					inv.numero_facture,
+					inv.date_facture,
+					inv.id,
+					'FACT'
+				),
+				dum: buildCompactDocParts(
+					inv.numero_declaration_dum,
+					inv.date_declaration_dum,
+					inv.dum_document_id,
+					'DUM'
+				),
 				dumId: inv.dum_document_id,
-				numeroDum:
-					inv.numero_declaration_dum ||
-					(inv.dum_document_id ? `DUM #${inv.dum_document_id}` : '—'),
 				statutControle: inv.statut_controle,
 				statutLabel: controleLabel(inv.statut_controle),
 				pfnDum: inv.montant_declare_dum,
@@ -114,11 +132,8 @@ function ReportsPage() {
 				) : (
 					tableRows.map((row) => (
 						<div key={row.id} className="reports-table-row">
-							<span>
-								<strong>{row.numeroFacture}</strong>
-								<small>#{row.id}</small>
-							</span>
-							<span>{row.numeroDum}</span>
+							<ReportsDocCell numero={row.facture.numero} date={row.facture.date} />
+							<ReportsDocCell numero={row.dum.numero} date={row.dum.date} />
 							<span className="reports-amounts">
 								PFN {row.pfnDum ?? '—'} / NET {row.netPay ?? '—'} {row.devise}
 							</span>

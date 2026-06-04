@@ -1,6 +1,12 @@
 import { fetchInvoiceById } from '../services/invoiceApi';
 import { fetchDocumentDetail } from '../services/ocrService';
 import { buildComparisonRows, getMontantAlignmentSummary } from './compareDisplay';
+import {
+	buildDumDisplayLine,
+	buildInvoiceDisplayLine,
+	buildReconciliationPairRef,
+	buildReportDocEntries,
+} from './crossVerifyDisplay';
 
 const parseConfidenceMap = (raw) => {
 	if (!raw || typeof raw !== 'object') {
@@ -16,13 +22,8 @@ const parseConfidenceMap = (raw) => {
 export const countComparisonIssues = (rows) =>
 	(rows || []).filter((r) => r.tone === 'error' || r.tone === 'warning').length;
 
-export const buildDossierRef = (invoice, dum) => {
-	const decl = invoice?.numero_declaration_dum || dum?.numero_declaration;
-	if (decl) {
-		return `Dossier ${decl}`;
-	}
-	return `Dossier #EMP-${invoice?.id ?? '—'}`;
-};
+export const buildDossierRef = (invoice, dum) =>
+	buildReconciliationPairRef(dum, invoice, invoice);
 
 /**
  * Charge le contexte complet d'un rapport (facture + DUM liée).
@@ -65,12 +66,11 @@ export const loadReportContext = async (invoiceId) => {
 		issueCount,
 		confidence,
 		dossierRef: buildDossierRef(invoice, dum),
+		dumDisplayLine: buildDumDisplayLine(dum, invoice, invoice?.dum_document_id),
+		invoiceDisplayLine: buildInvoiceDisplayLine(invoice, invoice, invoice?.id),
 		isAligned: amountSummary.aligned,
 		statutControle: invoice?.statut_controle || null,
 		comparedAt: invoice?.compared_at || null,
-		attachments: [
-			dum?.fichier ? { label: 'DUM', name: dum.fichier } : null,
-			invoice?.fichier_nom ? { label: 'Facture', name: invoice.fichier_nom } : null,
-		].filter(Boolean),
+		attachments: buildReportDocEntries(dum, invoice),
 	};
 };
