@@ -37,6 +37,10 @@ from app.services.dum_lookup import (
     release_dum_from_other_invoices,
 )
 from app.services.invoice_compare import compare_invoice_with_dum
+from app.services.validation_rules import (
+    assert_dum_ready_for_compare,
+    assert_invoice_ready_for_compare,
+)
 from app.services.invoice_extract import extract_invoice_from_bytes
 from app.services.invoice_file_storage import (
     delete_local_invoice_file,
@@ -698,6 +702,11 @@ def compare_with_dum(
         raise HTTPException(404, "Facture introuvable")
     assert_invoice_access(inv, current_user)
 
+    try:
+        assert_invoice_ready_for_compare(inv)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
     merged = merge_compare_body(db, inv, body)
     if merged.dum_document_id and inv.dum_document_id != merged.dum_document_id:
         release_dum_from_other_invoices(db, merged.dum_document_id, invoice_id)
@@ -720,6 +729,14 @@ def compare_with_dum(
             422,
             "montant_pfn_dum requis (body, ou liez une DUM via POST /link-dum ou dum_document_id).",
         )
+
+    dum_id_for_check = merged.dum_document_id or inv.dum_document_id
+    if dum_id_for_check:
+        try:
+            doc_check = assert_dum_available(db, dum_id_for_check)
+            assert_dum_ready_for_compare(doc_check)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     result = compare_invoice_with_dum(inv, merged)
 

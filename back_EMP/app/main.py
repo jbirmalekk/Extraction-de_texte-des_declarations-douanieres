@@ -18,11 +18,13 @@ from .database import init_db, SessionLocal
 from .routers import auth
 # Importer les modèles AVANT init_db pour que SQLAlchemy les connaisse
 from app.models.document import Document, Taxe, Article
+from app.models.erp_export import ErpExport
 from app.models.user import User, RevokedToken
 
 from .routers.dashboard import router as dashboard_router
 from .routers.unified_history import router as unified_history_router
 from .routers.invoice_proxy import router as invoice_proxy_router
+from .routers.erp_export import router as erp_export_router
 from app.routers.ocr import router as ocr_router
 # Charger les variables d'environnement
 load_dotenv()
@@ -68,6 +70,7 @@ app.add_middleware(
         "Content-Type",
         "X-Request-ID",
         "X-Client-PC-Name",
+        "X-Internal-Service-Key",
     ],
 )
 
@@ -76,6 +79,7 @@ app.include_router(auth.router)
 app.include_router(dashboard_router)
 app.include_router(unified_history_router)
 app.include_router(invoice_proxy_router)
+app.include_router(erp_export_router)
 app.include_router(ocr_router)
 
 

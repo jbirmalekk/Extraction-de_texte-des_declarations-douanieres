@@ -7,6 +7,7 @@ import {
 	FileText,
 	FileUp,
 	Download,
+	GitCompare,
 	RefreshCw,
 	XCircle,
 } from 'lucide-react';
@@ -46,6 +47,12 @@ import {
 	updateCrossVerificationSession,
 } from '../utils/crossVerificationSession';
 import { buildInvoiceByDumMap } from '../utils/historyUnified';
+import {
+	assertReconciliationPairReady,
+	isDumValidated,
+	isInvoiceValidated,
+	RECONCILIATION_BLOCKED_MSG,
+} from '../utils/workflowActions';
 import './CrossVerificationPage.css';
 import '../components/Workflow/WorkflowBreadcrumb.css';
 
@@ -68,7 +75,10 @@ function CrossVerificationPage() {
 	const [invoicePreview, setInvoicePreview] = useState(null);
 	const [previewsLoading, setPreviewsLoading] = useState(false);
 	const [previewErrors, setPreviewErrors] = useState({ dum: '', invoice: '' });
+	const [hubDumId, setHubDumId] = useState('');
+	const [hubInvoiceId, setHubInvoiceId] = useState('');
 
+	const isHubMode = !session?.sourceType || !session?.sourceId;
 	const sourceType = session?.sourceType;
 	const sourceId = session?.sourceId;
 	const invoiceId =
@@ -99,11 +109,8 @@ function CrossVerificationPage() {
 	}, [user]);
 
 	useEffect(() => {
-		if (!session?.sourceType || !session?.sourceId) {
-			return;
-		}
 		loadLists();
-	}, [session?.sourceType, session?.sourceId, loadLists]);
+	}, [loadLists]);
 
 	const hydrateDocumentPreviews = useCallback(
 		async (dumDocId, invId, sess = session, dumDoc = dumDetail, inv = invoiceDetail) => {
@@ -299,15 +306,65 @@ function CrossVerificationPage() {
 		[sourceType, sourceId, session, dumDocs, invoices]
 	);
 
-	const partnerOptions = useMemo(() => {
-		const formatListDate = (value) => {
-			const raw = String(value ?? '').trim();
-			return raw || null;
-		};
+	const sourceValidationMessage = useMemo(() => {
+		if (!sourceType || !sourceId) {
+			return '';
+		}
+		if (sourceType === 'dum') {
+			const src = dumDocs.find((d) => Number(d.id) === Number(sourceId));
+			if (src && !isDumValidated(src.statut)) {
+				return 'Validez cette DUM (étape Validation) avant de lancer la réconciliation.';
+			}
+			return '';
+		}
+		const src = invoices.find((inv) => Number(inv.id) === Number(sourceId));
+		if (src && !isInvoiceValidated(src.statut)) {
+			return 'Validez cette facture (étape Validation) avant de lancer la réconciliation.';
+		}
+		return '';
+	}, [sourceType, sourceId, dumDocs, invoices]);
 
+	const formatListDate = useCallback((value) => {
+		const raw = String(value ?? '').trim();
+		return raw || null;
+	}, []);
+
+	const validatedDumOptions = useMemo(
+		() =>
+			dumDocs
+				.filter((doc) => isDumValidated(doc.statut))
+				.map((doc) => {
+					const numero = doc.numero_declaration?.trim() || null;
+					const date = formatListDate(doc.date_declaration);
+					return {
+						id: doc.id,
+						label: numero ? `N° ${numero}` : `DUM #${doc.id}`,
+						sub: date ? `Date ${date}` : 'Date —',
+					};
+				}),
+		[dumDocs, formatListDate]
+	);
+
+	const validatedInvoiceOptions = useMemo(
+		() =>
+			invoices
+				.filter((inv) => isInvoiceValidated(inv.statut))
+				.map((inv) => {
+					const numero = inv.numero_facture?.trim() || null;
+					const date = formatListDate(inv.date_facture);
+					return {
+						id: inv.id,
+						label: numero ? `N° ${numero}` : `Facture #${inv.id}`,
+						sub: date ? `Date ${date}` : 'Date —',
+					};
+				}),
+		[invoices, formatListDate]
+	);
+
+	const partnerOptions = useMemo(() => {
 		if (partnerKind === 'invoice') {
 			return invoices
-				.filter((inv) => inv.id !== sourceId)
+				.filter((inv) => inv.id !== sourceId && isInvoiceValidated(inv.statut))
 				.map((inv) => {
 					const numero = inv.numero_facture?.trim() || null;
 					const date = formatListDate(inv.date_facture);
@@ -327,7 +384,7 @@ function CrossVerificationPage() {
 				});
 		}
 		return dumDocs
-			.filter((doc) => doc.id !== sourceId)
+			.filter((doc) => doc.id !== sourceId && isDumValidated(doc.statut))
 			.map((doc) => {
 				const numero = doc.numero_declaration?.trim() || null;
 				const date = formatListDate(doc.date_declaration);
@@ -338,7 +395,92 @@ function CrossVerificationPage() {
 					linkedSuffix: '',
 				};
 			});
-	}, [partnerKind, invoices, dumDocs, sourceId, dumById]);
+	}, [partnerKind, invoices, dumDocs, sourceId, dumById, formatListDate]);
+
+	const executeComparison = useCallback(
+		async ({
+			compareInvoiceId,
+			compareDumId,
+			selectedPartnerId,
+			activeSession,
+			partnerType,
+		}) => {
+			if (!compareInvoiceId || !compareDumId) {
+				setError('Sélectionnez une DUM et une facture validées.');
+				return;
+			}
+
+			const invRow =
+				invoices.find((inv) => Number(inv.id) === Number(compareInvoiceId)) || invoiceDetail;
+			const dumRow =
+				dumDocs.find((doc) => Number(doc.id) === Number(compareDumId)) || dumDetail;
+			const pairCheck = assertReconciliationPairReady({
+				dumStatut: dumRow?.statut,
+				invoiceStatut: invRow?.statut,
+			});
+			if (!pairCheck.ok) {
+				setError(pairCheck.message || RECONCILIATION_BLOCKED_MSG);
+				return;
+			}
+
+			setIsWorking(true);
+			setError('');
+			try {
+				await linkInvoiceToDum(compareInvoiceId, { dum_document_id: compareDumId });
+				const result = await compareInvoiceWithDum(compareInvoiceId, {
+					dum_document_id: compareDumId,
+				});
+				setComparison(result);
+
+				const [invDetail, dumDoc] = await Promise.all([
+					fetchInvoiceById(compareInvoiceId),
+					fetchDocumentDetail(compareDumId).catch(() => null),
+				]);
+				setInvoiceDetail(invDetail);
+				setDumDetail(dumDoc);
+
+				const {
+					dumPreview: dumPrev,
+					invoicePreview: invPrev,
+					errors: previewLoadErrors,
+				} = await loadCrossVerifyPreviews({
+					dumId: compareDumId,
+					invoiceId: compareInvoiceId,
+					session: activeSession,
+					dumDoc,
+					invoice: invDetail,
+				});
+				setDumPreview(dumPrev);
+				setInvoicePreview(invPrev);
+				setPreviewErrors(previewLoadErrors);
+
+				const nextSession = updateCrossVerificationSession({
+					sourceType: activeSession?.sourceType || 'invoice',
+					sourceId: activeSession?.sourceId || compareInvoiceId,
+					sourceNumero:
+						activeSession?.sourceNumero || invRow?.numero_facture || null,
+					sourceLabel:
+						activeSession?.sourceLabel || invRow?.numero_facture || null,
+					partnerType: partnerType || 'dum',
+					partnerId: selectedPartnerId ?? compareDumId,
+					invoiceId: compareInvoiceId,
+					dumDocumentId: compareDumId,
+					comparisonResult: result,
+					dumPreview: dumPrev,
+					invoicePreview: invPrev,
+					redoReconciliation: false,
+				});
+				setSession(nextSession);
+				setPhase('compare');
+			} catch (err) {
+				const detail = err?.response?.data?.detail;
+				setError(typeof detail === 'string' ? detail : 'Échec de la comparaison. Réessayez.');
+			} finally {
+				setIsWorking(false);
+			}
+		},
+		[dumDocs, invoices, dumDetail, invoiceDetail]
+	);
 
 	const runComparison = async (selectedPartnerId) => {
 		if (!invoiceId || !dumId) {
@@ -346,53 +488,57 @@ function CrossVerificationPage() {
 			return;
 		}
 
-		setIsWorking(true);
-		setError('');
-		try {
-			await linkInvoiceToDum(invoiceId, { dum_document_id: dumId });
-			const result = await compareInvoiceWithDum(invoiceId, { dum_document_id: dumId });
-			setComparison(result);
-
-			const [invDetail, dumDoc] = await Promise.all([
-				fetchInvoiceById(invoiceId),
-				fetchDocumentDetail(dumId).catch(() => null),
-			]);
-			setInvoiceDetail(invDetail);
-			setDumDetail(dumDoc);
-
-			const {
-				dumPreview: dumPrev,
-				invoicePreview: invPrev,
-				errors: previewLoadErrors,
-			} = await loadCrossVerifyPreviews({
-				dumId,
-				invoiceId,
-				session,
-				dumDoc,
-				invoice: invDetail,
-			});
-			setDumPreview(dumPrev);
-			setInvoicePreview(invPrev);
-			setPreviewErrors(previewLoadErrors);
-
-			const nextSession = updateCrossVerificationSession({
-				partnerType: partnerKind,
-				partnerId: selectedPartnerId,
-				invoiceId,
-				dumDocumentId: dumId,
-				comparisonResult: result,
-				dumPreview: dumPrev,
-				invoicePreview: invPrev,
-				redoReconciliation: false,
-			});
-			setSession(nextSession);
-			setPhase('compare');
-		} catch (err) {
-			const detail = err?.response?.data?.detail;
-			setError(typeof detail === 'string' ? detail : 'Échec de la comparaison. Réessayez.');
-		} finally {
-			setIsWorking(false);
+		if (sourceValidationMessage) {
+			setError(sourceValidationMessage);
+			return;
 		}
+
+		await executeComparison({
+			compareInvoiceId: invoiceId,
+			compareDumId: dumId,
+			selectedPartnerId,
+			activeSession: session,
+			partnerType: partnerKind,
+		});
+	};
+
+	const handleHubStartReconciliation = async () => {
+		const compareDumId = Number(hubDumId);
+		const compareInvoiceId = Number(hubInvoiceId);
+		if (!Number.isFinite(compareDumId) || compareDumId <= 0) {
+			setError('Choisissez une DUM validée dans la liste.');
+			return;
+		}
+		if (!Number.isFinite(compareInvoiceId) || compareInvoiceId <= 0) {
+			setError('Choisissez une facture validée dans la liste.');
+			return;
+		}
+
+		const invRow = invoices.find((inv) => Number(inv.id) === compareInvoiceId);
+		const dumRow = dumDocs.find((doc) => Number(doc.id) === compareDumId);
+
+		const initialSession = saveCrossVerificationSession({
+			sourceType: 'invoice',
+			sourceId: compareInvoiceId,
+			sourceNumero: invRow?.numero_facture ?? null,
+			sourceDate: invRow?.date_facture ?? null,
+			sourceLabel: invRow?.numero_facture ?? null,
+			sourceFileName: invRow?.fichier_nom || `Facture #${compareInvoiceId}`,
+			partnerType: 'dum',
+			partnerId: compareDumId,
+			invoiceId: compareInvoiceId,
+			dumDocumentId: compareDumId,
+			redoReconciliation: false,
+		});
+		setSession(initialSession);
+
+		await executeComparison({
+			compareInvoiceId,
+			compareDumId,
+			selectedPartnerId: compareDumId,
+			activeSession: initialSession,
+			partnerType: 'dum',
+		});
 	};
 
 	const handleStartCompare = () => {
@@ -429,32 +575,137 @@ function CrossVerificationPage() {
 	const isFullyAligned =
 		comparison?.statut_controle === 'ok' && isAmountAligned;
 
-	if (!session?.sourceType || !session?.sourceId) {
+	if (isHubMode) {
+		const hubListsEmpty =
+			!loadingLists &&
+			validatedDumOptions.length === 0 &&
+			validatedInvoiceOptions.length === 0;
+
 		return (
 			<div className="cross-verify-page fade-up">
-				<section className="cross-verify-card cross-verify-empty">
-					<AlertTriangle size={36} />
-					<h2>Réconciliation DUM vs Facture</h2>
-					<p>
-						Commencez par enregistrer un premier document (DUM ou facture) via la validation, puis
-						revenez ici pour le rapprocher avec son partenaire.
-					</p>
-					<div className="cross-verify-hub-actions">
-						<Link to="/validation" className="cross-verify-btn ghost">
-							Validation DUM
-						</Link>
-						<Link to="/invoice-validation" className="cross-verify-btn ghost">
-							Validation facture
-						</Link>
-						<Link to="/import" className="cross-verify-btn primary">
-							<FileUp size={16} />
-							Import / extraction
-						</Link>
+				<header className="cross-verify-header">
+					<div>
+						<p className="cross-verify-kicker">Contrôle douanier</p>
+						<h1>Contrôle DUM — Facture</h1>
+						<p className="cross-verify-sub">
+							Sélectionnez une DUM et une facture <strong>validées</strong>, puis lancez la
+							comparaison des montants et références.
+						</p>
 					</div>
-					<p className="cross-verify-help cross-verify-help--hub">
-						Astuce : le bouton « Vérification croisée » dans la validation ouvre directement
-						l&apos;étape de sélection du document partenaire.
+				</header>
+
+				{error ? (
+					<div className="cross-verify-alert error">
+						<AlertTriangle size={18} />
+						<span>{error}</span>
+					</div>
+				) : null}
+
+				<section className="cross-verify-card cross-verify-hub">
+					<h2>Rapprochement du dossier</h2>
+					<p className="cross-verify-help">
+						Seuls les documents ayant terminé l&apos;étape Validation apparaissent dans les listes.
 					</p>
+
+					{loadingLists ? (
+						<p className="cross-verify-help">Chargement des documents…</p>
+					) : (
+						<div className="cross-verify-hub-grid">
+							<div className="cross-verify-hub-field">
+								<label className="cross-verify-select-label" htmlFor="hub-dum">
+									DUM validée
+								</label>
+								<p className="cross-verify-select-hint">N° déclaration · date</p>
+								<select
+									id="hub-dum"
+									className="cross-verify-select"
+									value={hubDumId}
+									onChange={(e) => setHubDumId(e.target.value)}
+									disabled={isWorking}
+								>
+									<option value="">— Choisir une DUM —</option>
+									{validatedDumOptions.map((opt) => (
+										<option key={opt.id} value={opt.id}>
+											{opt.label} · {opt.sub}
+										</option>
+									))}
+								</select>
+								{!loadingLists && validatedDumOptions.length === 0 ? (
+									<p className="cross-verify-help cross-verify-help--warn">
+										Aucune DUM validée. Validez une DUM depuis Résultats DUM ou l&apos;historique.
+									</p>
+								) : null}
+							</div>
+
+							<div className="cross-verify-hub-field">
+								<label className="cross-verify-select-label" htmlFor="hub-invoice">
+									Facture validée
+								</label>
+								<p className="cross-verify-select-hint">N° facture · date</p>
+								<select
+									id="hub-invoice"
+									className="cross-verify-select"
+									value={hubInvoiceId}
+									onChange={(e) => setHubInvoiceId(e.target.value)}
+									disabled={isWorking}
+								>
+									<option value="">— Choisir une facture —</option>
+									{validatedInvoiceOptions.map((opt) => (
+										<option key={opt.id} value={opt.id}>
+											{opt.label} · {opt.sub}
+										</option>
+									))}
+								</select>
+								{!loadingLists && validatedInvoiceOptions.length === 0 ? (
+									<p className="cross-verify-help cross-verify-help--warn">
+										Aucune facture validée. Validez une facture depuis Résultats facture ou
+										l&apos;historique.
+									</p>
+								) : null}
+							</div>
+						</div>
+					)}
+
+					<div className="cross-verify-actions cross-verify-actions--hub">
+						<button
+							type="button"
+							className="cross-verify-btn ghost"
+							onClick={loadLists}
+							disabled={loadingLists || isWorking}
+						>
+							<RefreshCw size={16} />
+							Actualiser
+						</button>
+						<button
+							type="button"
+							className="cross-verify-btn primary"
+							onClick={handleHubStartReconciliation}
+							disabled={
+								!hubDumId ||
+								!hubInvoiceId ||
+								loadingLists ||
+								isWorking ||
+								hubListsEmpty
+							}
+						>
+							<GitCompare size={16} />
+							{isWorking ? 'Comparaison…' : 'Lancer la réconciliation'}
+						</button>
+					</div>
+
+					{hubListsEmpty ? (
+						<p className="cross-verify-help cross-verify-help--hub">
+							<Link to="/import" className="cross-verify-inline-link">
+								<FileUp size={14} /> Importer et extraire
+							</Link>{' '}
+							un document, puis le valider avant de revenir ici.
+						</p>
+					) : (
+						<p className="cross-verify-help cross-verify-help--hub">
+							Vous pouvez aussi ouvrir la réconciliation depuis l&apos;historique ou la page
+							détail d&apos;un document déjà validé.
+						</p>
+					)}
 				</section>
 			</div>
 		);
@@ -545,14 +796,20 @@ function CrossVerificationPage() {
 				</div>
 			) : null}
 
+			{sourceValidationMessage ? (
+				<div className="cross-verify-alert error">
+					<AlertTriangle size={18} />
+					<span>{sourceValidationMessage}</span>
+				</div>
+			) : null}
+
 			{phase === 'select' ? (
 				<section className="cross-verify-card">
 					<h2>Choisir le document de comparaison</h2>
 					<p className="cross-verify-help">
-						Votre {sourceType === 'dum' ? 'DUM' : 'facture'} est déjà enregistrée. Sélectionnez le{' '}
-						{partnerKind === 'invoice' ? 'document facture' : 'document DUM'} à rapprocher, puis
-						lancez la comparaison. Vous pouvez choisir un autre partenaire même si un lien existe
-						déjà (l&apos;ancienne liaison sera remplacée).
+						Seuls les documents <strong>validés</strong> apparaissent dans la liste partenaire.
+						Sélectionnez la {partnerKind === 'invoice' ? 'facture' : 'DUM'} à rapprocher, puis
+						lancez la comparaison.
 					</p>
 
 					<div className="cross-verify-source-pill">
@@ -589,8 +846,8 @@ function CrossVerificationPage() {
 
 					{partnerListEmpty ? (
 						<p className="cross-verify-help cross-verify-help--warn">
-							Aucun {partnerKind === 'invoice' ? 'document facture' : 'document DUM'} disponible
-							dans la liste. Extrayez-en un nouveau pour continuer la réconciliation.
+							Aucun {partnerKind === 'invoice' ? 'document facture validé' : 'document DUM validé'}{' '}
+							disponible. Validez un partenaire via l&apos;étape Validation ou extrayez-en un nouveau.
 						</p>
 					) : null}
 
@@ -629,7 +886,12 @@ function CrossVerificationPage() {
 							type="button"
 							className="cross-verify-btn primary"
 							onClick={handleStartCompare}
-							disabled={!partnerId || isWorking || loadingLists}
+							disabled={
+								!partnerId ||
+								isWorking ||
+								loadingLists ||
+								Boolean(sourceValidationMessage)
+							}
 						>
 							{isWorking ? 'Comparaison...' : 'Comparer les totaux'}
 							<ChevronRight size={16} />

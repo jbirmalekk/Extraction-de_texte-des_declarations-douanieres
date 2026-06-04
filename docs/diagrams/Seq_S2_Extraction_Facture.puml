@@ -1,0 +1,47 @@
+@startuml Seq_S2_Extraction_Facture
+title Sprint 2 - Extraction Facture (Front + back_EMP_Fact)
+autonumber
+
+actor Utilisateur as U
+
+box "Front - React" #E8F4FD
+  participant "ImportPage.jsx" as FE
+  participant "invoiceApi.js" as SVC
+end box
+
+box "Back - FastAPI (back_EMP_Fact :8001)" #FFF4E6
+  participant "Router Invoices\nPOST /api/invoices" as API
+  participant "invoice_extract.py" as EXT
+  participant "nextcloud_storage.py" as NC_SVC
+end box
+
+database "SQL Server" as DB
+participant "Nextcloud GED" as NC
+
+== US2.1 Import facture ==
+U -> FE : Choisir Facture + fichier
+FE -> SVC : createInvoiceFromUpload(file)
+SVC -> API : POST /api/invoices
+
+== US2.4 Extraction et structuration ==
+API -> EXT : extract_invoice_from_bytes(raw)
+note right of EXT
+  PDF texte natif ou OCR,
+  parse_invoice_text (regex)
+end note
+EXT --> API : InvoiceExtractResult
+
+API -> NC_SVC : upload_file_to_nextcloud()
+NC_SVC -> NC : PUT fichier
+NC --> NC_SVC : metadonnees GED
+NC_SVC --> API : path, url
+
+API -> DB : INSERT Invoice + InvoiceLine
+API -> DB : INSERT InvoiceUploadTrace
+API -> DB : COMMIT
+
+API --> SVC : 200 InvoiceOut
+SVC --> FE : resultat mappe
+FE --> U : extraction terminee
+
+@enduml

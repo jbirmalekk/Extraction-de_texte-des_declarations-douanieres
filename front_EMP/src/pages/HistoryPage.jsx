@@ -31,9 +31,17 @@ import {
 	hydrateInvoiceContextFromApi,
 } from '../utils/documentContextStorage';
 import ErpExportButton from '../components/Erp/ErpExportButton';
+import DocRefCell from '../components/ui/DocRefCell';
+import DocTypeBadge from '../components/ui/DocTypeBadge';
+import EmptyState from '../components/ui/EmptyState';
+import ReconciliationCell from '../components/ui/ReconciliationCell';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import StatusBadge from '../components/ui/StatusBadge';
 import {
 	getHistoryErpExportTarget,
 	historyReportInvoiceId,
+	isReconciliationNeedsRedo,
 	showHistoryErpExportButton,
 	showHistoryReconcileButton,
 	showHistoryReportLink,
@@ -81,8 +89,15 @@ function HistoryRowActions({
 					type="button"
 					className="table-action table-action--btn table-action--reconcile"
 					onClick={() => onStartCrossVerify(row)}
+					title={
+						isReconciliationNeedsRedo(row.controleStatut)
+							? 'Choisir un autre document partenaire et relancer la comparaison'
+							: undefined
+					}
 				>
-					Réconciliation
+					{isReconciliationNeedsRedo(row.controleStatut)
+						? 'Refaire réconciliation'
+						: 'Réconciliation'}
 				</button>
 			) : null}
 			{showHistoryErpExportButton(row) && erpTarget ? (
@@ -208,15 +223,39 @@ function HistoryPage() {
 	);
 
 	const statCards = [
-		{ key: 'total', label: 'Total traitements', value: stats.total, icon: FileText, color: '#2563eb' },
-		{ key: 'validated', label: 'Validés / contrôlés', value: stats.validated, icon: ShieldCheck, color: '#16a34a' },
-		{ key: 'inProgress', label: 'En attente / cours', value: stats.inProgress, icon: Clock, color: '#f59e0b' },
+		{
+			key: 'total',
+			label: 'Total traitements',
+			value: stats.total,
+			icon: FileText,
+			color: '#2563eb',
+			hint: 'DUM + factures',
+		},
+		{
+			key: 'validated',
+			label: 'Validés / contrôlés',
+			value: stats.validated,
+			icon: ShieldCheck,
+			color: '#16a34a',
+			hint: 'Prêts pour réconciliation',
+			to: '/history',
+		},
+		{
+			key: 'inProgress',
+			label: 'En attente / cours',
+			value: stats.inProgress,
+			icon: Clock,
+			color: '#f59e0b',
+			hint: 'Action requise',
+		},
 		{
 			key: 'recon',
-			label: 'Réconciliations',
-			value: `${stats.reconciledOk} OK · ${stats.reconciledWarn} écarts`,
+			label: 'Réconciliations OK',
+			value: stats.reconciledOk,
 			icon: GitCompare,
 			color: '#0f766e',
+			hint: `${stats.reconciledWarn} avec écarts`,
+			to: '/reports',
 		},
 	];
 	if (isAdmin) {
@@ -372,17 +411,12 @@ function HistoryPage() {
 	};
 
 	return (
-		<div className="history-page history-page--unified">
-			<section className="dashboard-hero modern history-hero">
-				<div>
-					<p className="hero-pill">Traçabilité</p>
-					<h1>{isAdmin ? 'Historique DUM & factures' : 'Mon historique'}</h1>
-					<p className="subtitle">
-						Vue unifiée des déclarations et factures : statuts, réconciliation, corrections et accès
-						rapides.
-					</p>
-				</div>
-			</section>
+		<div className="history-page history-page--unified fade-up">
+			<PageHeader
+				kicker="Centre de pilotage"
+				title={isAdmin ? 'Historique DUM & factures' : 'Mon historique'}
+				subtitle="Vue unifiée : statuts, réconciliation (partenaire DUM ou facture) et actions rapides."
+			/>
 
 			{error ? (
 				<section className="activities history-empty">
@@ -393,17 +427,18 @@ function HistoryPage() {
 				</section>
 			) : null}
 
-			<section className="stats-grid history-stats-grid">
-				{statCards.map(({ key, label, value, icon: Icon, color }) => (
-					<div key={key} className="stat-card">
-						<div className="stat-icon" style={{ color, backgroundColor: `${color}15` }}>
-							<Icon size={20} />
-						</div>
-						<div>
-							<p className="stat-label">{label}</p>
-							<p className="stat-value">{loading ? '…' : value}</p>
-						</div>
-					</div>
+			<section className="emp-stats-grid history-stats-grid">
+				{statCards.map(({ key, label, value, icon, color, hint, to }) => (
+					<StatCard
+						key={key}
+						label={label}
+						value={value}
+						hint={hint}
+						icon={icon}
+						color={color}
+						to={to}
+						loading={loading}
+					/>
 				))}
 			</section>
 
@@ -474,8 +509,8 @@ function HistoryPage() {
 				</div>
 			</section>
 
-			<section className="activities history-section">
-				<div className="section-header">
+			<section className="emp-panel history-section">
+				<div className="emp-panel-head">
 					<h2>{isAdmin ? 'Historique complet' : 'Mes activités'}</h2>
 					<span className="history-count">
 						{loading
@@ -483,7 +518,7 @@ function HistoryPage() {
 							: `${filteredRows.length} / ${allRows.length} enregistrement${allRows.length > 1 ? 's' : ''}`}
 					</span>
 				</div>
-
+				<div className="emp-panel-body">
 				<div className="history-table history-table--unified">
 					<div className="history-table-head">
 						<span className="history-select-head">
@@ -524,24 +559,32 @@ function HistoryPage() {
 									/>
 								</span>
 								<span>
-									<span className={`history-type-pill history-type-pill--${row.type}`}>
-										{row.type === 'dum' ? <FileText size={12} /> : <Receipt size={12} />}
-										{row.typeLabel}
-									</span>
+									<DocTypeBadge type={row.type} />
 								</span>
-								<span className="history-doc-main">
-									<strong>{row.reference}</strong>
-									<small>{row.fileName || '—'}</small>
+								<span>
+									<DocRefCell
+										numero={row.reference}
+										date={
+											row.type === 'dum'
+												? row.declarationDate
+												: row.invoiceDate
+										}
+										fileName={row.fileName}
+									/>
 								</span>
 								<span>{isAdmin ? row.owner || '—' : 'Moi'}</span>
 								<span className="history-date-cell">{row.dateLabel}</span>
 								<span>
-									<span className={`status-pill ${row.statusTone}`}>{row.status}</span>
+									<StatusBadge label={row.status} tone={row.statusTone} />
 								</span>
 								<span>
-									<span className={`history-recon-pill ${row.reconciliationTone}`}>
-										{row.reconciliationLabel}
-									</span>
+									<ReconciliationCell
+										statusLabel={row.reconciliationStatusLabel}
+										statusTone={row.reconciliationStatusTone}
+										partnerType={row.reconciliationPartnerType}
+										partnerNumero={row.reconciliationPartnerNumero}
+										partnerDate={row.reconciliationPartnerDate}
+									/>
 								</span>
 								<span className="history-corr-cell" title={row.correctionsHint || ''}>
 									{row.correctionsCount}
@@ -559,13 +602,17 @@ function HistoryPage() {
 							</div>
 						))
 					) : (
-						<div className="history-empty-state">
-							<p>Aucun enregistrement ne correspond aux filtres.</p>
-							<Link to="/import" className="history-btn primary">
-								Importer un document <ArrowRight size={14} />
-							</Link>
-						</div>
+						<EmptyState
+							title="Aucun enregistrement"
+							message="Aucun document ne correspond aux filtres actuels."
+							actions={
+								<Link to="/import" className="history-btn primary">
+									Importer un document <ArrowRight size={14} />
+								</Link>
+							}
+						/>
 					)}
+				</div>
 				</div>
 
 				{!loading && hasMoreFromApi ? (

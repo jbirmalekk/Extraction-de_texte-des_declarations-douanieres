@@ -88,8 +88,11 @@ def _map_invoice_history_item(inv: dict) -> dict:
         "status": inv.get("statut"),
         "statut_controle": inv.get("statut_controle"),
         "dum_document_id": inv.get("dum_document_id"),
+        "numero_declaration_dum": inv.get("numero_declaration_dum"),
+        "date_declaration_dum": inv.get("date_declaration_dum"),
         "net_pay": inv.get("net_pay"),
         "devise": inv.get("devise"),
+        "compared_at": inv.get("compared_at"),
     }
 
 

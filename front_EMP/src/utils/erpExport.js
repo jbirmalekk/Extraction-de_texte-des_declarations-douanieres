@@ -1,4 +1,5 @@
-/** Types d'export ERP (simulation → /erp-success, future API Uniges). */
+import { postErpMigration, postErpValidationData } from '../services/erpApi';
+
 export const ERP_EXPORT = {
 	DUM: 'dum',
 	INVOICE: 'invoice',
@@ -21,27 +22,28 @@ export const getErpExportLabel = (kind) => {
 export const getErpSuccessTitle = (kind) => {
 	switch (kind) {
 		case ERP_EXPORT.DUM:
-			return 'DUM envoyée vers l’ERP';
+			return 'DUM intégrée à l’ERP';
 		case ERP_EXPORT.INVOICE:
-			return 'Facture envoyée vers l’ERP';
+			return 'Facture intégrée à l’ERP';
 		case ERP_EXPORT.DOSSIER:
-			return 'Dossier exporté vers l’ERP';
+			return 'Dossier intégré à l’ERP';
 		default:
-			return 'Export ERP enregistré';
+			return 'Intégration ERP terminée';
 	}
 };
 
-export const getErpSuccessMessage = (kind, reference) => {
+export const getErpSuccessMessage = (kind, reference, erpReference) => {
 	const ref = reference ? ` (${reference})` : '';
+	const erp = erpReference ? ` Référence ERP : ${erpReference}.` : '';
 	switch (kind) {
 		case ERP_EXPORT.DUM:
-			return `La déclaration DUM validée${ref} est prête pour l’intégration ERP (Uniges).`;
+			return `La DUM${ref} a été enregistrée sur le serveur OCR puis migrée vers l’ERP.${erp}`;
 		case ERP_EXPORT.INVOICE:
-			return `La facture validée${ref} est prête pour l’intégration ERP (Uniges).`;
+			return `La facture${ref} a été enregistrée sur le serveur OCR puis migrée vers l’ERP.${erp}`;
 		case ERP_EXPORT.DOSSIER:
-			return `Le dossier de contrôle (DUM + facture + réconciliation)${ref} est prêt pour l’ERP.`;
+			return `Le dossier (DUM + facture + contrôle)${ref} a été migré vers l’ERP.${erp}`;
 		default:
-			return 'Export simulé — branchement API Uniges à venir.';
+			return `Intégration ERP réussie.${erp}`;
 	}
 };
 
@@ -56,58 +58,136 @@ export const navigateToErpSuccess = (navigate, exportPayload) => {
 	});
 };
 
+const resolveIdsForKind = (kind, { invoiceId, dumId, documentId }) => {
+	const inv = invoiceId ?? (kind === ERP_EXPORT.INVOICE ? documentId : null);
+	const dum = dumId ?? (kind === ERP_EXPORT.DUM ? documentId : null);
+	return {
+		invoiceId: inv != null ? Number(inv) : null,
+		dumDocumentId: dum != null ? Number(dum) : null,
+	};
+};
+
 /**
- * Export dossier (réconciliation / rapport) — mêmes garde-fous que la conformité.
- * @returns {boolean} true si navigation effectuée
+ * Pipeline Front → S1 (JSON en BD) → S2 (migration ERP).
  */
-export const requestDossierErpExport = ({
+export const executeErpIntegration = async ({
+	kind,
+	invoiceId = null,
+	dumId = null,
+	documentId = null,
+	reference = null,
+}) => {
+	const { invoiceId: invId, dumDocumentId } = resolveIdsForKind(kind, {
+		invoiceId,
+		dumId,
+		documentId,
+	});
+
+	const stored = await postErpValidationData({
+		kind,
+		dumDocumentId,
+		invoiceId: invId,
+		reference,
+	});
+
+	const migration = await postErpMigration(stored.export_id);
+
+	return {
+		exportId: stored.export_id,
+		kind: stored.kind,
+		reference: stored.reference ?? reference,
+		storedStatus: stored.status,
+		migration,
+		erpReference: migration.erp_reference ?? null,
+	};
+};
+
+const formatErpError = (err) => {
+	const detail = err?.response?.data?.detail;
+	if (typeof detail === 'string') {
+		return detail;
+	}
+	if (Array.isArray(detail)) {
+		return detail.map((d) => d.msg || JSON.stringify(d)).join(' · ');
+	}
+	return err?.message || 'Échec de l’intégration ERP.';
+};
+
+/**
+ * Export ERP avec garde-fous métier (dossier) puis pipeline S1 + S2.
+ */
+export const requestErpExport = async ({
 	navigate,
-	statutControle,
-	isAmountAligned,
+	kind = ERP_EXPORT.DOSSIER,
+	statutControle = null,
+	isAmountAligned = true,
 	isAdmin = false,
-	invoiceId,
-	dumId,
-	reference,
+	invoiceId = null,
+	dumId = null,
+	documentId = null,
+	reference = null,
 	onError,
 }) => {
-	if (!isAmountAligned) {
-		onError?.(
-			'Export ERP refusé : les montants PFN DUM et NET PAY doivent être alignés.'
-		);
-		return false;
-	}
-
-	if (statutControle === 'error' && !isAdmin) {
-		onError?.(
-			'Export ERP impossible : écarts critiques. Corrigez les documents ou demandez un override administrateur.'
-		);
-		return false;
-	}
-
-	if (statutControle === 'error' && isAdmin) {
-		const confirmed = window.confirm(
-			'Écarts critiques détectés. Confirmez-vous l’export ERP malgré les écarts ?'
-		);
-		if (!confirmed) {
+	if (kind === ERP_EXPORT.DOSSIER) {
+		if (!isAmountAligned) {
+			onError?.(
+				'Export ERP refusé : les montants PFN DUM et NET PAY doivent être alignés.'
+			);
 			return false;
+		}
+
+		if (statutControle === 'error' && !isAdmin) {
+			onError?.(
+				'Export ERP impossible : écarts critiques. Corrigez les documents ou demandez un override administrateur.'
+			);
+			return false;
+		}
+
+		if (statutControle === 'error' && isAdmin) {
+			const confirmed = window.confirm(
+				'Écarts critiques détectés. Confirmez-vous l’export ERP malgré les écarts ?'
+			);
+			if (!confirmed) {
+				return false;
+			}
+		}
+
+		if (statutControle === 'warning') {
+			const confirmed = window.confirm(
+				'Des points d’attention subsistent. Confirmez-vous l’export ERP ?'
+			);
+			if (!confirmed) {
+				return false;
+			}
 		}
 	}
 
-	if (statutControle === 'warning') {
-		const confirmed = window.confirm(
-			'Des points d’attention subsistent (poids, incoterm, etc.). Confirmez-vous l’export ERP ?'
-		);
-		if (!confirmed) {
-			return false;
-		}
-	}
+	try {
+		const result = await executeErpIntegration({
+			kind,
+			invoiceId,
+			dumId,
+			documentId,
+			reference,
+		});
 
-	navigateToErpSuccess(navigate, {
-		kind: ERP_EXPORT.DOSSIER,
-		invoiceId: invoiceId ?? null,
-		dumId: dumId ?? null,
-		reference: reference ?? null,
-		statutControle: statutControle ?? null,
-	});
-	return true;
+		navigateToErpSuccess(navigate, {
+			kind,
+			invoiceId: invoiceId ?? (kind === ERP_EXPORT.INVOICE ? documentId : null),
+			dumId: dumId ?? (kind === ERP_EXPORT.DUM ? documentId : null),
+			reference: result.reference,
+			exportId: result.exportId,
+			erpReference: result.erpReference,
+			statutControle,
+			migrationMessage: result.migration?.message,
+		});
+		return true;
+	} catch (err) {
+		onError?.(formatErpError(err));
+		return false;
+	}
 };
+
+/** @deprecated Utiliser requestErpExport */
+export const requestDossierErpExport = (opts) =>
+	requestErpExport({ ...opts, kind: ERP_EXPORT.DOSSIER });

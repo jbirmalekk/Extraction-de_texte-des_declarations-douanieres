@@ -26,6 +26,13 @@ const invoiceStatusMap = {
 	controle_croise: { label: 'Contrôlé', tone: 'success', filterKey: 'validated' },
 };
 
+const trimOrNull = (value) => {
+	const s = String(value ?? '').trim();
+	return s || null;
+};
+
+import { isDumValidated, isInvoiceValidated } from './workflowActions';
+
 const dumStatusFilterKey = (statusLabel) => {
 	if (statusLabel === 'Validé') {
 		return 'validated';
@@ -37,6 +44,22 @@ const dumStatusFilterKey = (statusLabel) => {
 		return 'in_progress';
 	}
 	return 'pending';
+};
+
+export const reconciliationStatusFromControle = (statutControle) => {
+	if (statutControle === 'ok') {
+		return { label: 'Conforme', tone: 'ok' };
+	}
+	if (statutControle === 'warning') {
+		return { label: 'Attention', tone: 'warning' };
+	}
+	if (statutControle === 'error') {
+		return { label: 'Écart', tone: 'error' };
+	}
+	if (statutControle) {
+		return { label: 'Comparé', tone: 'warning' };
+	}
+	return { label: '—', tone: 'neutral' };
 };
 
 const reconciliationFromInvoice = (inv) => {
@@ -63,25 +86,27 @@ const reconciliationFromInvoice = (inv) => {
 export const mapDumHistoryRow = (row, invoiceByDumId) => {
 	const linked = invoiceByDumId.get(row.document_id);
 	let reconciliation = { label: '—', tone: 'neutral' };
+	let reconciliationStatus = reconciliationStatusFromControle(null);
+	let reconciliationPartner = {
+		partnerType: null,
+		partnerNumero: null,
+		partnerDate: null,
+	};
+
+	let linkedPartnerValidated = null;
 	if (linked) {
+		reconciliationStatus = reconciliationStatusFromControle(linked.statut_controle);
 		reconciliation = {
-			label: `Facture #${linked.id}${linked.numero_facture ? ` (${linked.numero_facture})` : ''}`,
-			tone:
-				linked.statut_controle === 'ok'
-					? 'ok'
-					: linked.statut_controle === 'warning'
-						? 'warning'
-						: linked.statut_controle === 'error'
-							? 'error'
-							: 'neutral',
+			label: `Facture ${linked.numero_facture || `#${linked.id}`}`,
+			tone: reconciliationStatus.tone,
 		};
-		if (linked.statut_controle === 'ok') {
-			reconciliation.label += ' · OK';
-		} else if (linked.statut_controle === 'warning') {
-			reconciliation.label += ' · Attention';
-		} else if (linked.statut_controle === 'error') {
-			reconciliation.label += ' · Écart';
-		}
+		linkedPartnerValidated = isInvoiceValidated(linked.statut);
+		reconciliationPartner = {
+			partnerType: 'invoice',
+			partnerNumero:
+				trimOrNull(linked.numero_facture) || `FACT-${linked.id}`,
+			partnerDate: trimOrNull(linked.date_facture),
+		};
 	}
 
 	const createdIso = row.created_at || row.validated_at || `${row.date}T00:00:00`;
@@ -106,8 +131,15 @@ export const mapDumHistoryRow = (row, invoiceByDumId) => {
 		status: row.status || 'En attente',
 		statusTone: row.tone || 'warning',
 		statusFilterKey: dumStatusFilterKey(row.status),
+		sourceValidated: dumStatusFilterKey(row.status) === 'validated' || isDumValidated(row.status),
+		linkedPartnerValidated: linkedPartnerValidated,
 		reconciliationLabel: reconciliation.label,
 		reconciliationTone: reconciliation.tone,
+		reconciliationStatusLabel: reconciliationStatus.label,
+		reconciliationStatusTone: reconciliationStatus.tone,
+		reconciliationPartnerType: reconciliationPartner.partnerType,
+		reconciliationPartnerNumero: reconciliationPartner.partnerNumero,
+		reconciliationPartnerDate: reconciliationPartner.partnerDate,
 		correctionsCount,
 		correctionsHint,
 		score: row.score ?? null,
@@ -135,6 +167,8 @@ export const mapUnifiedInvoiceToListItem = (row) => ({
 	statut: row.status || row.statut || 'extracted',
 	statut_controle: row.statut_controle,
 	dum_document_id: row.dum_document_id,
+	numero_declaration_dum: row.numero_declaration_dum ?? null,
+	date_declaration_dum: row.date_declaration_dum ?? null,
 	net_pay: row.net_pay,
 	devise: row.devise,
 	compared_at: row.compared_at,
@@ -162,7 +196,8 @@ export const splitUnifiedHistoryResponse = (data) => {
 	};
 };
 
-export const mapInvoiceHistoryRow = (inv) => {
+/** @param {Map<number, object>} [dumById] lignes DUM historique (document_id → row) */
+export const mapInvoiceHistoryRow = (inv, dumById) => {
 	const st = invoiceStatusMap[inv.statut] || {
 		label: inv.statut || 'Extrait',
 		tone: 'warning',
@@ -170,6 +205,33 @@ export const mapInvoiceHistoryRow = (inv) => {
 	};
 	const rec = reconciliationFromInvoice(inv);
 	const createdIso = inv.created_at || null;
+	const reconciliationStatus = inv.dum_document_id
+		? reconciliationStatusFromControle(inv.statut_controle)
+		: reconciliationStatusFromControle(null);
+
+	const dumId = inv.dum_document_id != null ? Number(inv.dum_document_id) : null;
+	const linkedDum = dumId != null && dumById ? dumById.get(dumId) : null;
+	const reconciliationPartner = dumId
+		? {
+				partnerType: 'dum',
+				partnerNumero:
+					trimOrNull(inv.numero_declaration_dum) ||
+					trimOrNull(linkedDum?.numero_declaration) ||
+					`DUM #${dumId}`,
+				partnerDate:
+					trimOrNull(inv.date_declaration_dum) ||
+					trimOrNull(linkedDum?.date_declaration) ||
+					null,
+			}
+		: {
+				partnerType: null,
+				partnerNumero: null,
+				partnerDate: null,
+			};
+
+	const linkedPartnerValidated = dumId
+		? isDumValidated(linkedDum?.status) || linkedDum?.status === 'Validé'
+		: null;
 
 	return {
 		id: `invoice-${inv.id}`,
@@ -184,8 +246,15 @@ export const mapInvoiceHistoryRow = (inv) => {
 		status: st.label,
 		statusTone: st.tone,
 		statusFilterKey: inv.compared_at ? 'reconciled' : st.filterKey,
+		sourceValidated: isInvoiceValidated(inv.statut),
+		linkedPartnerValidated,
 		reconciliationLabel: rec.label,
 		reconciliationTone: rec.tone,
+		reconciliationStatusLabel: reconciliationStatus.label,
+		reconciliationStatusTone: reconciliationStatus.tone,
+		reconciliationPartnerType: reconciliationPartner.partnerType,
+		reconciliationPartnerNumero: reconciliationPartner.partnerNumero,
+		reconciliationPartnerDate: reconciliationPartner.partnerDate,
 		correctionsCount: '—',
 		correctionsHint: null,
 		score: inv.net_pay != null ? `${inv.net_pay} ${inv.devise || ''}`.trim() : null,
@@ -213,10 +282,22 @@ export const buildInvoiceByDumMap = (invoices) => {
 	return map;
 };
 
+export const buildDumByIdMap = (dumHistory) => {
+	const map = new Map();
+	for (const row of dumHistory || []) {
+		const id = row.document_id ?? row.id;
+		if (id != null) {
+			map.set(Number(id), row);
+		}
+	}
+	return map;
+};
+
 export const mergeHistoryRows = (dumHistory, invoices) => {
 	const invoiceByDum = buildInvoiceByDumMap(invoices);
+	const dumById = buildDumByIdMap(dumHistory);
 	const dumRows = (dumHistory || []).map((row) => mapDumHistoryRow(row, invoiceByDum));
-	const invoiceRows = (invoices || []).map(mapInvoiceHistoryRow);
+	const invoiceRows = (invoices || []).map((inv) => mapInvoiceHistoryRow(inv, dumById));
 	return [...dumRows, ...invoiceRows].sort((a, b) => {
 		const ta = parseDate(a.dateIso)?.getTime() ?? 0;
 		const tb = parseDate(b.dateIso)?.getTime() ?? 0;

@@ -1,0 +1,31 @@
+:root {
+	--emp-dum: #2563eb;
+	--emp-dum-bg: #eff6ff;
+	--emp-dum-border: #93c5fd;
+
+	--emp-invoice: #059669;
+	--emp-invoice-bg: #ecfdf5;
+	--emp-invoice-border: #6ee7b7;
+
+	--emp-erp: #7c3aed;
+	--emp-erp-bg: #f5f3ff;
+	--emp-erp-border: #c4b5fd;
+
+	--emp-ok: #16a34a;
+	--emp-ok-bg: #f0fdf4;
+	--emp-warn: #d97706;
+	--emp-warn-bg: #fffbeb;
+	--emp-error: #dc2626;
+	--emp-error-bg: #fef2f2;
+	--emp-neutral: #64748b;
+	--emp-neutral-bg: #f8fafc;
+
+	--emp-surface: #ffffff;
+	--emp-surface-muted: #f8fafc;
+	--emp-border: rgba(148, 163, 184, 0.35);
+	--emp-text: #0f172a;
+	--emp-text-muted: #64748b;
+	--emp-radius: 14px;
+	--emp-radius-sm: 10px;
+	--emp-shadow: 0 16px 40px -28px rgba(15, 23, 42, 0.28);
+}

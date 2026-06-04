@@ -1,0 +1,48 @@
+@startuml Seq_S2_Historique
+title Sprint 2 - Consultation historique
+autonumber
+
+actor Utilisateur as U
+actor Administrateur as A
+
+box "Front" #E8F4FD
+  participant "HistoryPage.jsx" as FE
+  participant "historyService.js" as SVC
+end box
+
+box "Back" #E8F5E9
+  participant "dashboard.py\nGET /history" as API_DUM
+  participant "invoices.py\nGET /invoices" as API_INV
+end box
+
+database "SQL Server" as DB
+
+alt Utilisateur
+  U -> FE : Ouvrir /history
+else Administrateur
+  A -> FE : Ouvrir /history (tous users)
+end
+
+FE -> SVC : fetchDumHistoryPage(isAdmin)
+FE -> SVC : fetchInvoiceHistoryPage(user)
+
+SVC -> API_DUM : GET history
+API_DUM -> DB : SELECT documents
+DB --> API_DUM : liste DUM
+API_DUM --> SVC : history
+
+SVC -> API_INV : GET invoices
+API_INV -> DB : SELECT invoices
+DB --> API_INV : liste factures
+API_INV --> SVC : items
+
+SVC --> FE : mergeHistoryRows()
+FE --> U : tableau unifie + filtres
+
+note over FE
+  Document visible apres extraction
+  (persistance Sprint 2).
+  Reconciliation = Sprint 3.
+end note
+
+@enduml

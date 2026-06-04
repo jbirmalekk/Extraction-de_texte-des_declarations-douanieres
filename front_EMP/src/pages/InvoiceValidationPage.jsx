@@ -11,8 +11,12 @@ import {
 } from 'lucide-react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import ErpExportButton from '../components/Erp/ErpExportButton';
+import ValidationContextStrip from '../components/ui/ValidationContextStrip';
 import WorkflowBreadcrumb from '../components/Workflow/WorkflowBreadcrumb';
 import { ERP_EXPORT } from '../utils/erpExport';
+import { getWorkflowProgressForValidation } from '../utils/workflowProgress';
+import { isInvoiceValidated, RECONCILIATION_BLOCKED_MSG } from '../utils/workflowActions';
+import { fieldNeedsCorrection } from '../utils/validationFieldFilters';
 import {
 	createInvoiceFromUpload,
 	fetchInvoiceById,
@@ -657,6 +661,12 @@ function InvoiceValidationPage() {
 		if (isFinalValidating || isCrossVerifying) {
 			return;
 		}
+		const alreadyValidated =
+			readyForErp || isInvoiceValidated(payload?.rawResult?.statut);
+		if (!alreadyValidated) {
+			showToast('error', RECONCILIATION_BLOCKED_MSG);
+			return;
+		}
 
 		setIsCrossVerifying(true);
 		try {
@@ -805,6 +815,20 @@ function InvoiceValidationPage() {
 						? `/invoice-ocr-result?invoiceId=${resolvedInvoiceId || payload?.backendId || payload?.invoiceId}`
 						: '/invoice-ocr-result',
 				}}
+			/>
+
+			<ValidationContextStrip
+				type="invoice"
+				reference={
+					fields.find((f) => f.key === 'numero_facture')?.value || documentLabel
+				}
+				fileName={displayPreview?.name || payload?.documentId}
+				fieldsToCorrect={fields.filter((f) => fieldNeedsCorrection(f)).length}
+				totalFields={fields.length}
+				workflowSteps={getWorkflowProgressForValidation({
+					validated: readyForErp,
+					reconciled: false,
+				})}
 			/>
 
 			<section className="validation-header-shell">
@@ -1046,7 +1070,14 @@ function InvoiceValidationPage() {
 										!hasBackendLink ||
 										isCheckingBackend ||
 										invoiceBackendMissing ||
-										isRegisteringInBackend
+										isRegisteringInBackend ||
+										(!readyForErp &&
+											!isInvoiceValidated(payload?.rawResult?.statut))
+									}
+									title={
+										!readyForErp && !isInvoiceValidated(payload?.rawResult?.statut)
+											? RECONCILIATION_BLOCKED_MSG
+											: undefined
 									}
 								>
 									<GitCompare size={16} />
@@ -1086,8 +1117,8 @@ function InvoiceValidationPage() {
 						</div>
 						<p className="validation-actions-help">
 							<strong>Étape 1</strong> : enregistrez la facture en base si nécessaire.{' '}
-							<strong>Enregistrer brouillon</strong> : sauvegarde locale (auto toutes les 30 s).{' '}
-							<strong>Envoyer facture vers ERP</strong> : après validation.
+							<strong>Valider la facture</strong> avant la vérification croisée.{' '}
+							<strong>Enregistrer brouillon</strong> : sauvegarde locale (auto toutes les 30 s).
 						</p>
 					</div>
 				</section>

@@ -1,0 +1,67 @@
+@startuml Seq_S2_Extraction_DUM
+title Sprint 2 - Extraction DUM (Front + Back + BDD + GED)
+autonumber
+
+actor Utilisateur as U
+
+box "Front - React (front_EMP)" #E8F4FD
+  participant "ImportPage.jsx" as FE
+  participant "ocrService.js" as SVC
+end box
+
+box "Back - FastAPI (back_EMP :8000)" #FFF9C4
+  participant "Router OCR\nPOST /api/ocr" as API
+  participant "auth.py\nget_current_user" as AUTH
+  participant "document_quality.py" as QC
+  participant "orchestrator.py\nprocess_document" as ORCH
+  participant "nextcloud_storage.py" as NC_SVC
+end box
+
+database "SQL Server" as DB
+participant "Nextcloud GED" as NC
+
+== US2.1 Import ==
+U -> FE : Choisir DUM + fichier
+U -> FE : Lancer extraction
+FE -> SVC : extractOcrDocument(file)
+SVC -> API : POST /api/ocr (multipart + JWT)
+
+== Authentification ==
+API -> AUTH : get_current_user()
+AUTH --> API : User
+
+== US2.2 Controle qualite ==
+API -> QC : assess_upload_document(bytes)
+QC --> API : ok ou block
+
+alt Qualite insuffisante
+  API --> SVC : HTTP 422
+  SVC --> FE : erreur
+  FE --> U : message qualite
+else Qualite OK
+  API -> NC_SVC : upload_file_to_nextcloud()
+  NC_SVC -> NC : PUT fichier
+  NC --> NC_SVC : path, url, etag
+  NC_SVC --> API : metadonnees GED
+
+  API -> ORCH : process_document(bytes, filename)
+  note right of ORCH
+    ingest, preprocess, deskew,
+    zones semantiques,
+    PaddleOCR / Tesseract,
+    parse_document DUM
+  end note
+  ORCH --> API : dict structure
+
+  API -> DB : INSERT Document
+  API -> DB : INSERT OCRResult, ExtractedField
+  API -> DB : INSERT Taxe, Article
+  API -> DB : INSERT DocumentUploadTrace
+  API -> DB : COMMIT
+
+  API --> SVC : 200 JSON
+  SVC --> FE : resultat
+  FE --> U : extraction terminee
+end
+
+@enduml

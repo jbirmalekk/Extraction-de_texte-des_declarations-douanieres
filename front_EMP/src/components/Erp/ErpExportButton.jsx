@@ -1,10 +1,10 @@
+import { useState } from 'react';
 import { Database } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
 	ERP_EXPORT,
 	getErpExportLabel,
-	navigateToErpSuccess,
-	requestDossierErpExport,
+	requestErpExport,
 } from '../../utils/erpExport';
 import './ErpExportButton.css';
 
@@ -25,35 +25,35 @@ function ErpExportButton({
 	children,
 }) {
 	const navigate = useNavigate();
+	const [isExporting, setIsExporting] = useState(false);
 	const label = children || getErpExportLabel(kind);
 
-	const handleClick = () => {
+	const handleClick = async () => {
 		if (onClick) {
 			onClick();
 			return;
 		}
+		if (isExporting || disabled) {
+			return;
+		}
 
-		if (kind === ERP_EXPORT.DOSSIER) {
-			requestDossierErpExport({
+		setIsExporting(true);
+		try {
+			await requestErpExport({
 				navigate,
+				kind,
 				statutControle,
 				isAmountAligned,
 				isAdmin,
 				invoiceId,
 				dumId,
+				documentId,
 				reference,
 				onError,
 			});
-			return;
+		} finally {
+			setIsExporting(false);
 		}
-
-		navigateToErpSuccess(navigate, {
-			kind,
-			invoiceId: kind === ERP_EXPORT.INVOICE ? invoiceId ?? documentId : null,
-			dumId: kind === ERP_EXPORT.DUM ? dumId ?? documentId : null,
-			documentId: documentId ?? dumId ?? invoiceId,
-			reference,
-		});
 	};
 
 	const classes = [
@@ -70,11 +70,11 @@ function ErpExportButton({
 			type="button"
 			className={classes}
 			onClick={handleClick}
-			disabled={disabled}
+			disabled={disabled || isExporting}
 			title={disabled ? 'Validez le document avant l’export ERP' : undefined}
 		>
 			<Database size={16} />
-			{label}
+			{isExporting ? 'Intégration ERP…' : label}
 		</button>
 	);
 }

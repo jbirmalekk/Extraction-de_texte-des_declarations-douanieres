@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     INVOICE_API_TIMEOUT_SECONDS: int = int(os.getenv("INVOICE_API_TIMEOUT_SECONDS", "120"))
     INVOICE_INTERNAL_API_KEY: str = os.getenv("INVOICE_INTERNAL_API_KEY", "").strip()
 
+    # Serveur ERP S2 (migration — URL exemple, remplacer par l'ERP réel)
+    ERP_SERVICE_URL: str = os.getenv("ERP_SERVICE_URL", "http://localhost:8002").strip()
+
     # Fichiers DUM locaux (si GED Nextcloud indisponible)
     DUM_LOCAL_STORAGE_DIR: str = os.getenv("DUM_LOCAL_STORAGE_DIR", "storage/dum")
 

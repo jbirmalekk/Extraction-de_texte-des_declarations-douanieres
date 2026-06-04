@@ -9,15 +9,26 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ErpExportButton from '../components/Erp/ErpExportButton';
+import DetailSummaryHeader from '../components/Detail/DetailSummaryHeader';
 import DetailDocumentPreview from '../components/Detail/DetailDocumentPreview';
 import { ERP_EXPORT } from '../utils/erpExport';
 import DetailFieldsPanel from '../components/Detail/DetailFieldsPanel';
 import { fetchInvoiceByDumId } from '../services/invoiceApi';
 import { fetchDocumentCorrections, fetchDocumentDetail } from '../services/ocrService';
-import { buildDumDetailSections, formatDumStatut } from '../utils/detailDisplay';
+import {
+	buildDumDetailSections,
+	formatControleTone,
+	formatDumStatut,
+} from '../utils/detailDisplay';
 import { beginReconciliationSession } from '../utils/crossVerificationSession';
 import { hydrateDumContextFromApi } from '../utils/documentContextStorage';
-import { isDumValidated, isReconciliationControlOk } from '../utils/workflowActions';
+import {
+	canShowReconciliation,
+	isDumValidated,
+	isInvoiceValidated,
+	isReconciliationControlOk,
+	isReconciliationNeedsRedo,
+} from '../utils/workflowActions';
 
 function DocumentDetailPage() {
 	const { documentId } = useParams();
@@ -32,12 +43,27 @@ function DocumentDetailPage() {
 
 	const dumSections = useMemo(() => buildDumDetailSections(document), [document]);
 	const statusInfo = formatDumStatut(document?.statut);
+	const controleInfo = formatControleTone(linkedInvoice?.statut_controle);
 	const dumValidated = isDumValidated(document?.statut);
 	const reconOk = isReconciliationControlOk(linkedInvoice?.statut_controle);
 	const reportInvoiceId = linkedInvoice?.id && reconOk ? linkedInvoice.id : null;
-	const showReconcile = !reconOk;
+	const controleStatut = linkedInvoice?.statut_controle;
+	const linkedPartnerValidated = linkedInvoice?.id
+		? isInvoiceValidated(linkedInvoice.statut)
+		: null;
+	const showReconcile =
+		isReconciliationNeedsRedo(controleStatut) && dumValidated
+			? true
+			: canShowReconciliation({
+					sourceValidated: dumValidated,
+					linkedPartnerValidated,
+					reconOk,
+				});
 	const createdLabel = document?.created_at
 		? new Date(document.created_at).toLocaleString('fr-FR')
+		: '—';
+	const comparedLabel = linkedInvoice?.compared_at
+		? new Date(linkedInvoice.compared_at).toLocaleString('fr-FR')
 		: '—';
 
 	useEffect(() => {
@@ -166,48 +192,34 @@ function DocumentDetailPage() {
 				</div>
 			) : document ? (
 				<div className="detail-shell">
-					<DetailDocumentPreview
-						kind="dum"
-						documentId={documentId}
-						fileName={document.fichier}
-						contentType="application/pdf"
-						dossier={document.dossier}
-						title="Aperçu du document DUM"
-					/>
+					
 					<section className="detail-summary card-panel detail-summary--dum">
-						<div className="detail-summary-title">
-							<div className="detail-doc-icon detail-doc-icon--dum">
-								<FileText size={22} />
-							</div>
-							<div>
-								<p className="stat-label">{document.fichier || `Document #${document.id}`}</p>
-								<h2>{document.numero_declaration || 'N° déclaration non renseigné'}</h2>
-								<p className="detail-summary-note">
-									Propriétaire :{' '}
+						<DetailSummaryHeader
+							icon={FileText}
+							iconClassName="detail-doc-icon--dum"
+							fileLabel={document.fichier || `Document #${document.id}`}
+							numero={document.numero_declaration || 'N° déclaration non renseigné'}
+							date={document.date_declaration}
+							metaLine={
+								<>
+									Statut{' '}
+									<span className={`status-pill ${statusInfo.tone}`}>{statusInfo.label}</span>
+									{' · '}Propriétaire :{' '}
 									<strong>{document.uploaded_by?.username || '—'}</strong> · Créé le{' '}
 									<strong>{createdLabel}</strong>
-								</p>
-							</div>
-						</div>
+								</>
+							}
+						/>
 						<div className="detail-summary-grid">
 							<div>
-								<span>Statut traitement</span>
-								<strong>
-									<span className={`status-pill ${statusInfo.tone}`}>{statusInfo.label}</span>
-								</strong>
-							</div>
-							<div>
-								<span>Score OCR</span>
-								<strong>{document.score_confiance ?? '—'}%</strong>
-							</div>
-							<div>
-								<span>Qualité OCR</span>
-								<strong>{document.qualite || '—'}</strong>
+								<span>Exportateur</span>
+								<strong>{document.exportateur_nom || '—'}</strong>
 							</div>
 							<div>
 								<span>PFN / Montant PTFN</span>
 								<strong>
-									{document.montant_ptfn || '—'} {document.devise || ''}
+									{document.montant_ptfn || linkedInvoice?.montant_declare_dum || '—'}{' '}
+									{document.devise || linkedInvoice?.devise_declaree_dum || ''}
 								</strong>
 							</div>
 							<div>
@@ -220,13 +232,39 @@ function DocumentDetailPage() {
 									{linkedInvoice?.id ? (
 										<Link to={`/invoices/${linkedInvoice.id}`}>
 											{linkedInvoice.numero_facture || `Facture #${linkedInvoice.id}`}
+											{linkedInvoice.date_facture
+												? ` · ${linkedInvoice.date_facture}`
+												: ''}
 										</Link>
 									) : (
 										'—'
 									)}
 								</strong>
 							</div>
+							<div>
+								<span>Contrôle croisé</span>
+								<strong>
+									<span className={`history-recon-pill ${controleInfo.tone}`}>
+										{controleInfo.label}
+									</span>
+								</strong>
+							</div>
+							<div>
+								<span>Écart montant</span>
+								<strong>{linkedInvoice?.ecart_montant ?? '—'}</strong>
+							</div>
+							<div>
+								<span>Dernière comparaison</span>
+								<strong>{comparedLabel}</strong>
+							</div>
+							<div>
+								<span>Mode transport</span>
+								<strong>{document.mode_transport || '—'}</strong>
+							</div>
 						</div>
+						{linkedInvoice?.ecart_commentaire ? (
+							<p className="detail-comment">{linkedInvoice.ecart_commentaire}</p>
+						) : null}
 					</section>
 
 					<div className="detail-tabs">

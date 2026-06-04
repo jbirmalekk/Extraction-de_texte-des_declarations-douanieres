@@ -103,10 +103,7 @@
 	background: #f8fafc;
 }
 
-.history-table--unified .history-table-head,
-.history-table--unified .history-table-row {
-	grid-template-columns: 2.5rem 0.7fr 1.4fr 0.9fr 1.1fr 0.85fr 1.2fr 0.5fr 1.5fr;
-}
+/* Grille colonnes : voir components/ui/ui.css (.history-table--unified) */
 
 .history-type-pill {
 	display: inline-flex;

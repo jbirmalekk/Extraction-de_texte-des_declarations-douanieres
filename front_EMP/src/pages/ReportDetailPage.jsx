@@ -16,7 +16,12 @@ import { useAuth } from '../hooks/useAuth';
 import { ERP_EXPORT } from '../utils/erpExport';
 import { formatMoney } from '../utils/compareDisplay';
 import { loadReportContext } from '../utils/reportContext';
+import DossierSummaryStrip from '../components/ui/DossierSummaryStrip';
+import PageHeader from '../components/ui/PageHeader';
+import StatusBadge from '../components/ui/StatusBadge';
+import WorkflowTimeline from '../components/ui/WorkflowTimeline';
 import { isReportConforme } from '../utils/workflowActions';
+import { getWorkflowProgressForValidation } from '../utils/workflowProgress';
 import { exportComparisonReportPdf } from '../utils/reconciliationReportPdf';
 import './ReportDetailPage.css';
 
@@ -130,33 +135,87 @@ function ReportDetailPage() {
 		issueCount,
 	});
 
+	const workflowSteps = getWorkflowProgressForValidation({
+		validated: true,
+		reconciled: true,
+		reconOk: ctx.statutControle === 'ok',
+		erpReady: ctx.statutControle === 'ok' && amountSummary.aligned,
+	});
+
+	const controleTone =
+		ctx.statutControle === 'ok'
+			? 'ok'
+			: ctx.statutControle === 'warning'
+				? 'warning'
+				: ctx.statutControle === 'error'
+					? 'error'
+					: 'neutral';
+
 	return (
 		<div className="report-detail-page fade-up">
-			<header className="report-detail-top">
-				<div>
-					<Link to="/reports" className="report-detail-back">
-						<ArrowLeft size={16} />
-						Rapports de contrôle
-					</Link>
-					<h1>Rapport de vérification croisée</h1>
-					<p className="report-detail-sub">{dossierRef}</p>
-				</div>
-				<div className="report-detail-top-actions">
-					<button type="button" className="rd-btn ghost" onClick={load}>
-						<RefreshCw size={16} />
-						Actualiser
-					</button>
-					<button
-						type="button"
-						className="rd-btn primary"
-						onClick={handleExportPdf}
-						disabled={exporting}
-					>
-						<Download size={16} />
-						{exporting ? 'Export…' : 'Exporter PDF'}
-					</button>
-				</div>
-			</header>
+			<Link to="/reports" className="report-detail-back">
+				<ArrowLeft size={16} />
+				Rapports de contrôle
+			</Link>
+
+			<PageHeader
+				kicker="Dossier de contrôle"
+				title="Rapport de vérification croisée"
+				subtitle={dossierRef}
+				actions={
+					<>
+						<button type="button" className="rd-btn ghost" onClick={load}>
+							<RefreshCw size={16} />
+							Actualiser
+						</button>
+						<button
+							type="button"
+							className="rd-btn primary"
+							onClick={handleExportPdf}
+							disabled={exporting}
+						>
+							<Download size={16} />
+							{exporting ? 'Export…' : 'Exporter PDF'}
+						</button>
+					</>
+				}
+			/>
+
+			<WorkflowTimeline title="Parcours du dossier" steps={workflowSteps} />
+
+			<DossierSummaryStrip
+				pfn={amountSummary.pfn}
+				netPay={amountSummary.netPay}
+				ecart={amountSummary.ecartAbs}
+				devise={dev}
+				partnerLabel={`${dumDisplayLine} ↔ ${invoiceDisplayLine}`}
+				comparedAt={
+					ctx.comparedAt
+						? new Date(ctx.comparedAt).toLocaleString('fr-FR')
+						: null
+				}
+			/>
+
+			<div className="report-detail-top-meta">
+				<StatusBadge
+					label={
+						ctx.statutControle === 'ok'
+							? 'Conforme'
+							: ctx.statutControle === 'warning'
+								? 'Attention'
+								: ctx.statutControle === 'error'
+									? 'Écart'
+									: '—'
+					}
+					tone={controleTone}
+				/>
+				{confidence != null ? (
+					<span className="report-detail-meta-chip">Confiance OCR {confidence} %</span>
+				) : null}
+				<span className="report-detail-meta-chip">
+					{issueCount} écart{issueCount !== 1 ? 's' : ''} détecté{issueCount !== 1 ? 's' : ''}
+				</span>
+			</div>
 
 			<section
 				className={`report-detail-alert ${hasAlert ? 'is-error' : hasWarning ? 'is-warn' : 'is-ok'}`}

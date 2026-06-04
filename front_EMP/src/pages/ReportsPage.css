@@ -80,6 +80,36 @@
 	padding: 1rem;
 }
 
+.reports-table-head--rich,
+.reports-table-row--rich {
+	display: grid;
+	grid-template-columns:
+		minmax(10.5rem, 1.15fr)
+		minmax(10.5rem, 1.15fr)
+		minmax(6.5rem, 0.75fr)
+		minmax(6.5rem, 0.8fr)
+		minmax(5.5rem, 0.7fr);
+	gap: 0.65rem 0.75rem;
+	align-items: start;
+	padding: 0.75rem 1rem;
+}
+
+.reports-table-head--rich {
+	align-items: end;
+	padding-bottom: 0.55rem;
+}
+
+.reports-mini-timeline .emp-workflow-timeline {
+	border: 0;
+	background: transparent;
+	padding: 0;
+}
+
+.reports-date {
+	font-size: 0.82rem;
+	color: #64748b;
+}
+
 .reports-table-head,
 .reports-table-row {
 	display: grid;

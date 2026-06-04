@@ -8,11 +8,13 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ErpExportButton from '../components/Erp/ErpExportButton';
+import DetailSummaryHeader from '../components/Detail/DetailSummaryHeader';
 import DetailDocumentPreview from '../components/Detail/DetailDocumentPreview';
 import { useAuth } from '../hooks/useAuth';
 import { ERP_EXPORT } from '../utils/erpExport';
 import DetailFieldsPanel from '../components/Detail/DetailFieldsPanel';
 import { fetchInvoiceById } from '../services/invoiceApi';
+import { fetchDocumentDetail } from '../services/ocrService';
 import {
 	buildInvoiceDetailSections,
 	formatControleTone,
@@ -20,13 +22,20 @@ import {
 } from '../utils/detailDisplay';
 import { beginReconciliationSession } from '../utils/crossVerificationSession';
 import { hydrateInvoiceContextFromApi } from '../utils/documentContextStorage';
-import { isInvoiceValidated, isReconciliationControlOk } from '../utils/workflowActions';
+import {
+	canShowReconciliation,
+	isDumValidated,
+	isInvoiceValidated,
+	isReconciliationControlOk,
+	isReconciliationNeedsRedo,
+} from '../utils/workflowActions';
 
 function InvoiceDetailPage() {
 	const { invoiceId } = useParams();
 	const navigate = useNavigate();
 	const { user } = useAuth();
 	const [invoice, setInvoice] = useState(null);
+	const [linkedDumStatut, setLinkedDumStatut] = useState(null);
 	const [activeTab, setActiveTab] = useState('fields');
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
@@ -38,7 +47,17 @@ function InvoiceDetailPage() {
 	const invoiceValidated = isInvoiceValidated(invoice?.statut);
 	const reconOk = isReconciliationControlOk(invoice?.statut_controle);
 	const reportInvoiceId = reconOk && invoice?.id ? invoice.id : null;
-	const showReconcile = !reconOk;
+	const linkedPartnerValidated = invoice?.dum_document_id
+		? isDumValidated(linkedDumStatut)
+		: null;
+	const showReconcile =
+		isReconciliationNeedsRedo(invoice?.statut_controle) && invoiceValidated
+			? true
+			: canShowReconciliation({
+					sourceValidated: invoiceValidated,
+					linkedPartnerValidated,
+					reconOk,
+				});
 
 	const createdLabel = invoice?.created_at
 		? new Date(invoice.created_at).toLocaleString('fr-FR')
@@ -54,8 +73,14 @@ function InvoiceDetailPage() {
 			setError('');
 			try {
 				const data = await fetchInvoiceById(invoiceId);
+				let dumStatut = null;
+				if (data?.dum_document_id) {
+					const dum = await fetchDocumentDetail(data.dum_document_id).catch(() => null);
+					dumStatut = dum?.statut ?? null;
+				}
 				if (active) {
 					setInvoice(data);
+					setLinkedDumStatut(dumStatut);
 				}
 			} catch (err) {
 				if (active) {
@@ -174,28 +199,21 @@ function InvoiceDetailPage() {
 				</div>
 			) : invoice ? (
 				<div className="detail-shell">
-					<DetailDocumentPreview
-						kind="invoice"
-						documentId={invoiceId}
-						fileName={invoice.fichier_nom}
-						contentType={invoice.content_type || 'application/pdf'}
-						dossier={invoice.dossier}
-						title="Aperçu du document facture"
-					/>
+					
 					<section className="detail-summary card-panel detail-summary--invoice">
-						<div className="detail-summary-title">
-							<div className="detail-doc-icon detail-doc-icon--invoice">
-								<Receipt size={22} />
-							</div>
-							<div>
-								<p className="stat-label">{invoice.fichier_nom || `Facture #${invoice.id}`}</p>
-								<h2>{invoice.numero_facture || 'N° facture non renseigné'}</h2>
-								<p className="detail-summary-note">
+						<DetailSummaryHeader
+							icon={Receipt}
+							iconClassName="detail-doc-icon--invoice"
+							fileLabel={invoice.fichier_nom || `Facture #${invoice.id}`}
+							numero={invoice.numero_facture || 'N° facture non renseigné'}
+							date={invoice.date_facture}
+							metaLine={
+								<>
 									Statut <span className={`status-pill ${statusInfo.tone}`}>{statusInfo.label}</span>
 									{' · '}Créée le <strong>{createdLabel}</strong>
-								</p>
-							</div>
-						</div>
+								</>
+							}
+						/>
 						<div className="detail-summary-grid">
 							<div>
 								<span>Client</span>
@@ -224,6 +242,9 @@ function InvoiceDetailPage() {
 										<Link to={`/documents/${invoice.dum_document_id}`}>
 											{invoice.numero_declaration_dum ||
 												`DUM #${invoice.dum_document_id}`}
+											{invoice.date_declaration_dum
+												? ` · ${invoice.date_declaration_dum}`
+												: ''}
 										</Link>
 									) : (
 										'—'

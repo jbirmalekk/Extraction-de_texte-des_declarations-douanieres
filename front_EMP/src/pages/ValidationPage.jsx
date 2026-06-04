@@ -14,8 +14,11 @@ import {
 } from 'lucide-react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import ErpExportButton from '../components/Erp/ErpExportButton';
+import ValidationContextStrip from '../components/ui/ValidationContextStrip';
 import WorkflowBreadcrumb from '../components/Workflow/WorkflowBreadcrumb';
 import { ERP_EXPORT } from '../utils/erpExport';
+import { getWorkflowProgressForValidation } from '../utils/workflowProgress';
+import { fieldNeedsCorrection } from '../utils/validationFieldFilters';
 import { fetchLatestOcrCorrections, validateOcrDocument } from '../services/ocrService';
 import { useValidationDraft } from '../hooks/useValidationDraft';
 import { buildBackendValidationPayload } from '../utils/ocrFields';
@@ -628,6 +631,20 @@ function ValidationPage() {
 						? `/ocr-result?documentId=${payload.backendId}`
 						: '/ocr-result',
 				}}
+			/>
+
+			<ValidationContextStrip
+				type="dum"
+				reference={
+					fields.find((f) => f.key === 'numero_declaration')?.value || documentLabel
+				}
+				fileName={displayPreview?.name || payload?.documentId}
+				fieldsToCorrect={fields.filter((f) => fieldNeedsCorrection(f)).length}
+				totalFields={fields.length}
+				workflowSteps={getWorkflowProgressForValidation({
+					validated: readyForErp,
+					reconciled: false,
+				})}
 			/>
 
 			<section className="validation-header-shell">
