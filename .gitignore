@@ -25,3 +25,7 @@ Microsoft/Windows/PowerShell/ModuleAnalysisCache
 .venv/ 
 venv312/ 
 __pycache__/ 
+.venv312/ 
+__pycache__/ 
+*.dll 
+*.exe 
