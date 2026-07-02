@@ -7,7 +7,38 @@ export const isDumValidated = (statutOrLabel) => {
 /** Facture validée ou déjà passée au contrôle croisé. */
 export const isInvoiceValidated = (statut) => {
 	const s = String(statut || '').toLowerCase();
-	return s === 'valide' || s === 'controle_croise';
+	return (
+		s === 'valide' ||
+		s === 'controle_croise' ||
+		s === 'controle_ok' ||
+		s === 'controle_warning' ||
+		s === 'controle_ecart'
+	);
+};
+
+/** Contrôle terminé avec écart ou attention → nouvelle réconciliation possible. */
+export const isReconciliationNeedsRedo = (statutControle) =>
+	statutControle === 'error' || statutControle === 'warning';
+
+export const RECONCILIATION_BLOCKED_MSG =
+	'La vérification croisée nécessite une DUM et une facture validées (étape Validation terminée).';
+
+/** Afficher le bouton Réconciliation (source validée ; partenaire lié non validé = masqué). */
+export const canShowReconciliation = ({
+	sourceValidated,
+	linkedPartnerValidated,
+	reconOk,
+}) => {
+	if (reconOk) {
+		return false;
+	}
+	if (!sourceValidated) {
+		return false;
+	}
+	if (linkedPartnerValidated === false) {
+		return false;
+	}
+	return true;
 };
 
 /** Ligne historique : masquer le bouton Validation. */
@@ -16,9 +47,9 @@ export const isHistoryRowValidated = (row) => {
 		return false;
 	}
 	if (row.type === 'dum') {
-		return row.statusFilterKey === 'validated' || isDumValidated(row.status);
+		return Boolean(row.sourceValidated);
 	}
-	return row.statusFilterKey === 'validated';
+	return Boolean(row.sourceValidated);
 };
 
 export const isReconciliationControlOk = (statutControle) => statutControle === 'ok';
@@ -27,18 +58,39 @@ export const isReconciliationControlOk = (statutControle) => statutControle === 
 export const isReportConforme = ({ statutControle, amountAligned, issueCount = 0 }) =>
 	isReconciliationControlOk(statutControle) && Boolean(amountAligned) && issueCount === 0;
 
-/** ID facture pour « Voir le rapport » (réconciliation OK). */
+/** ID facture pour « Voir le rapport » (après au moins une comparaison). */
 export const historyReportInvoiceId = (row) => {
-	if (!row || !isReconciliationControlOk(row.controleStatut) || !row.isReconciled) {
+	if (!row) {
 		return null;
 	}
-	return row.type === 'invoice' ? row.invoiceId : row.linkedInvoiceId;
+	const invoiceId = row.type === 'invoice' ? row.invoiceId : row.linkedInvoiceId;
+	if (!invoiceId) {
+		return null;
+	}
+	if (!row.controleStatut && !row.isReconciled) {
+		return null;
+	}
+	return invoiceId;
 };
 
 export const showHistoryValidationButton = (row) => !isHistoryRowValidated(row);
 
-export const showHistoryReconcileButton = (row) =>
-	!isReconciliationControlOk(row?.controleStatut);
+export const showHistoryReconcileButton = (row) => {
+	if (!row?.sourceValidated) {
+		return false;
+	}
+	if (isReconciliationControlOk(row?.controleStatut)) {
+		return false;
+	}
+	if (isReconciliationNeedsRedo(row?.controleStatut)) {
+		return true;
+	}
+	return canShowReconciliation({
+		sourceValidated: true,
+		linkedPartnerValidated: row?.linkedPartnerValidated,
+		reconOk: false,
+	});
+};
 
 export const showHistoryReportLink = (row) => historyReportInvoiceId(row) != null;
 
@@ -78,3 +130,14 @@ export const getHistoryErpExportTarget = (row) => {
 };
 
 export const showHistoryErpExportButton = (row) => getHistoryErpExportTarget(row) != null;
+
+/** Vérifier qu’un couple DUM + facture peut être comparé. */
+export const assertReconciliationPairReady = ({ dumStatut, invoiceStatut }) => {
+	if (!isDumValidated(dumStatut)) {
+		return { ok: false, message: 'La DUM doit être validée avant la vérification croisée.' };
+	}
+	if (!isInvoiceValidated(invoiceStatut)) {
+		return { ok: false, message: 'La facture doit être validée avant la vérification croisée.' };
+	}
+	return { ok: true, message: '' };
+};

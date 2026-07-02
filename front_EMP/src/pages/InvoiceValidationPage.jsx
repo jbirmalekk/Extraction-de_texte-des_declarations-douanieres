@@ -150,6 +150,7 @@ function InvoiceValidationPage() {
 	const [fields, setFields] = useState([]);
 	const [toast, setToast] = useState(null);
 	const [isFinalValidating, setIsFinalValidating] = useState(false);
+	const [isSavingDraft, setIsSavingDraft] = useState(false);
 	const [readyForErp, setReadyForErp] = useState(false);
 	const [isCrossVerifying, setIsCrossVerifying] = useState(false);
 	const [resolvedInvoiceId, setResolvedInvoiceId] = useState(routeInvoiceId);
@@ -481,14 +482,49 @@ function InvoiceValidationPage() {
 		showToast('info', 'Formulaire réinitialisé aux données OCR d\'origine.');
 	};
 
-	const handleSaveChanges = () => {
-		if (persistDraft()) {
-			markDraftSaved();
-			showToast('success', 'Brouillon enregistré localement.');
+	const handleSaveChanges = async () => {
+		const localSaved = persistDraft();
+		if (invoiceBackendMissing || !hasBackendLink) {
+			if (localSaved) {
+				markDraftSaved();
+			}
+			showToast(
+				'error',
+				'Facture absente de la base. Cliquez sur « Enregistrer la facture en base » dans le bandeau ci-dessus.'
+			);
+			return;
+		}
+
+		setIsSavingDraft(true);
+		try {
+			const updated = await persistInvoiceToBackend({ saveAsDraft: true });
+			if (localSaved) {
+				markDraftSaved();
+			}
+			setPayload((prev) => ({
+				...(prev || {}),
+				rawResult: updated,
+				backendId: updated.id,
+				invoiceId: updated.id,
+			}));
+			showToast(
+				'success',
+				'Brouillon enregistré (navigateur + serveur). Consultez l’historique.'
+			);
+		} catch (error) {
+			const detail = error?.response?.data?.detail;
+			showToast(
+				'error',
+				typeof detail === 'string'
+					? detail
+					: error?.message || 'Échec de l’enregistrement du brouillon sur le serveur.'
+			);
+		} finally {
+			setIsSavingDraft(false);
 		}
 	};
 
-	const persistInvoiceToBackend = async ({ markValidated = false } = {}) => {
+	const persistInvoiceToBackend = async ({ markValidated = false, saveAsDraft = false } = {}) => {
 		const invoiceId = resolvedInvoiceId ?? resolveInvoiceIdFromStorage(payload);
 		if (!invoiceId) {
 			throw new Error(
@@ -498,8 +534,8 @@ function InvoiceValidationPage() {
 		const patch = buildInvoicePatchFromFields(fields);
 		if (markValidated) {
 			patch.statut = 'valide';
-		} else {
-			patch.statut = 'controle_croise';
+		} else if (saveAsDraft) {
+			patch.statut = 'extracted';
 		}
 		let updated;
 		try {
@@ -554,11 +590,8 @@ function InvoiceValidationPage() {
 		try {
 			await persistInvoiceToBackend({ markValidated: true });
 			setReadyForErp(true);
-			showToast(
-				'success',
-				'Facture validée. Envoyez-la vers l’ERP ou lancez la vérification croisée.'
-			);
-			setIsFinalValidating(false);
+			showToast('success', 'Facture validée. Redirection vers l’historique…');
+			navigate('/history');
 		} catch (error) {
 			const detail = error?.response?.data?.detail;
 			showToast(
@@ -1053,10 +1086,15 @@ function InvoiceValidationPage() {
 									type="button"
 									className="action-btn save"
 									onClick={handleSaveChanges}
-									disabled={isFinalValidating || isCrossVerifying || isRegisteringInBackend}
+									disabled={
+										isFinalValidating ||
+										isCrossVerifying ||
+										isRegisteringInBackend ||
+										isSavingDraft
+									}
 								>
 									<Save size={16} />
-									Enregistrer brouillon
+									{isSavingDraft ? 'Enregistrement…' : 'Enregistrer brouillon'}
 								</button>
 							</div>
 							<div className="validation-actions-primary">
@@ -1118,7 +1156,7 @@ function InvoiceValidationPage() {
 						<p className="validation-actions-help">
 							<strong>Étape 1</strong> : enregistrez la facture en base si nécessaire.{' '}
 							<strong>Valider la facture</strong> avant la vérification croisée.{' '}
-							<strong>Enregistrer brouillon</strong> : sauvegarde locale (auto toutes les 30 s).
+							<strong>Enregistrer brouillon</strong> : sauvegarde locale + serveur (statut « Extrait », visible dans l’historique).
 						</p>
 					</div>
 				</section>

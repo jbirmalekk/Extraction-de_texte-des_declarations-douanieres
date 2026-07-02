@@ -13,6 +13,16 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
     CORS_ALLOWED_ORIGINS: str = ""
     ENV: str = "development"
+    DEBUG: bool = False
+
+    # Base ERP locale (traçabilité migrations S2)
+    DB_SERVER: str = "192.168.81.230\\SQLEXPRESS"
+    DB_NAME: str = "EMP0206"
+    DB_DRIVER: str = "ODBC Driver 18 for SQL Server"
+    DB_TRUSTED_CONNECTION: str = "yes"
+    DB_USER: str = "GMAO"
+    DB_PASSWORD: str = "123456"
+    DB_ENCRYPT: str = "no"
 
     @property
     def internal_api_key(self) -> str:

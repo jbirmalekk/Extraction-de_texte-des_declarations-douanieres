@@ -113,8 +113,57 @@ const formatErpError = (err) => {
 	return err?.message || 'Échec de l’intégration ERP.';
 };
 
+/** Bloque ou prépare le message de confirmation avant export ERP. */
+export const getErpExportGate = ({
+	kind = ERP_EXPORT.DOSSIER,
+	statutControle = null,
+	isAmountAligned = true,
+	isAdmin = false,
+}) => {
+	if (kind === ERP_EXPORT.DOSSIER) {
+		if (!isAmountAligned) {
+			return {
+				allowed: false,
+				reason:
+					'Export ERP refusé : les montants PFN DUM et NET PAY doivent être alignés.',
+			};
+		}
+
+		if (statutControle === 'error' && !isAdmin) {
+			return {
+				allowed: false,
+				reason:
+					'Export ERP impossible : écarts critiques. Corrigez les documents ou demandez un override administrateur.',
+			};
+		}
+
+		if (statutControle === 'error' && isAdmin) {
+			return {
+				allowed: true,
+				confirmMessage:
+					'Écarts critiques détectés. Confirmez-vous l’intégration ERP malgré les écarts ?',
+			};
+		}
+
+		if (statutControle === 'warning') {
+			return {
+				allowed: true,
+				confirmMessage:
+					'Des points d’attention subsistent. Confirmez-vous l’intégration ERP ?',
+			};
+		}
+	}
+
+	const action = getErpExportLabel(kind).toLowerCase();
+	return {
+		allowed: true,
+		confirmMessage: `Confirmez-vous ${action} vers l’ERP ? Les données seront enregistrées puis migrées.`,
+	};
+};
+
 /**
  * Export ERP avec garde-fous métier (dossier) puis pipeline S1 + S2.
+ * La confirmation utilisateur est gérée par ErpExportButton (panneau intégré).
  */
 export const requestErpExport = async ({
 	navigate,
@@ -128,38 +177,10 @@ export const requestErpExport = async ({
 	reference = null,
 	onError,
 }) => {
-	if (kind === ERP_EXPORT.DOSSIER) {
-		if (!isAmountAligned) {
-			onError?.(
-				'Export ERP refusé : les montants PFN DUM et NET PAY doivent être alignés.'
-			);
-			return false;
-		}
-
-		if (statutControle === 'error' && !isAdmin) {
-			onError?.(
-				'Export ERP impossible : écarts critiques. Corrigez les documents ou demandez un override administrateur.'
-			);
-			return false;
-		}
-
-		if (statutControle === 'error' && isAdmin) {
-			const confirmed = window.confirm(
-				'Écarts critiques détectés. Confirmez-vous l’export ERP malgré les écarts ?'
-			);
-			if (!confirmed) {
-				return false;
-			}
-		}
-
-		if (statutControle === 'warning') {
-			const confirmed = window.confirm(
-				'Des points d’attention subsistent. Confirmez-vous l’export ERP ?'
-			);
-			if (!confirmed) {
-				return false;
-			}
-		}
+	const gate = getErpExportGate({ kind, statutControle, isAmountAligned, isAdmin });
+	if (!gate.allowed) {
+		onError?.(gate.reason);
+		return false;
 	}
 
 	try {

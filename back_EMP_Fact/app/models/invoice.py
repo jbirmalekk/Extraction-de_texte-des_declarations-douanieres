@@ -19,9 +19,8 @@ class Invoice(Base):
     dossier: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     uploaded_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
-    dum_document_id: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, unique=True, index=True
-    )
+    # Unicité 1–1 DUM/facture uniquement quand lié (index filtré en migration SQL Server).
+    dum_document_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     numero_facture: Mapped[str | None] = mapped_column(String(64), nullable=True)
     date_facture: Mapped[str | None] = mapped_column(String(32), nullable=True)

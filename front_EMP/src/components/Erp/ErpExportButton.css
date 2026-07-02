@@ -56,3 +56,86 @@
 .report-detail-sidebar .erp-export-btn--block {
 	margin-top: 0.35rem;
 }
+
+.erp-export-wrap {
+	position: relative;
+	display: inline-flex;
+	flex-direction: column;
+	align-items: stretch;
+	max-width: 100%;
+}
+
+.erp-export-wrap .erp-export-btn--block {
+	width: 100%;
+}
+
+.erp-export-confirm {
+	position: absolute;
+	top: calc(100% + 0.45rem);
+	left: 0;
+	z-index: 40;
+	min-width: min(22rem, 92vw);
+	max-width: min(26rem, 96vw);
+	padding: 0.85rem 0.95rem;
+	border-radius: 12px;
+	border: 1px solid rgba(124, 58, 237, 0.35);
+	background: #ffffff;
+	box-shadow: 0 16px 40px -24px rgba(15, 23, 42, 0.45);
+}
+
+.erp-export-confirm__text {
+	margin: 0 0 0.75rem;
+	font-size: 0.88rem;
+	line-height: 1.45;
+	color: #334155;
+}
+
+.erp-export-confirm__actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.erp-export-confirm__btn {
+	border-radius: 8px;
+	padding: 0.42rem 0.75rem;
+	font-size: 0.82rem;
+	font-weight: 600;
+	cursor: pointer;
+	border: 1px solid transparent;
+}
+
+.erp-export-confirm__btn--ghost {
+	background: #f8fafc;
+	border-color: #cbd5e1;
+	color: #475569;
+}
+
+.erp-export-confirm__btn--ghost:hover:not(:disabled) {
+	background: #f1f5f9;
+}
+
+.erp-export-confirm__btn--primary {
+	background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%);
+	color: #fff;
+	border-color: #6d28d9;
+}
+
+.erp-export-confirm__btn--primary:hover:not(:disabled) {
+	background: linear-gradient(180deg, #6d28d9 0%, #5b21b6 100%);
+}
+
+.erp-export-confirm__btn:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.history-actions-cell .erp-export-wrap {
+	width: 100%;
+}
+
+.history-actions-cell .erp-export-confirm {
+	right: 0;
+	left: auto;
+}

@@ -5,14 +5,18 @@ POST /api/migration : récupère le JSON sur S1 puis exécute la migration (simu
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 
 import requests
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.database import get_db
+from app.models.erp_migration_log import ErpMigrationLog
 
 logger = logging.getLogger("erp.migration")
 
@@ -107,10 +111,47 @@ def _run_erp_migration(export_bundle: dict) -> tuple[bool, str, str | None]:
     return True, f"Migration ERP simulée réussie ({ref}).", erp_ref
 
 
+def _persist_migration_log(
+    db: Session,
+    *,
+    export_id: int,
+    bundle: dict,
+    success: bool,
+    message: str,
+    erp_reference: str | None,
+) -> None:
+    now = datetime.utcnow()
+    row = ErpMigrationLog(
+        s1_export_id=export_id,
+        kind=str(bundle.get("kind") or "dossier"),
+        reference=bundle.get("reference"),
+        status="migration_ok" if success else "migration_failed",
+        migration_message=message,
+        erp_reference=erp_reference,
+        payload_json=json.dumps(bundle.get("payload") or {}, ensure_ascii=False),
+        migrated_at=now if success else None,
+    )
+    db.add(row)
+    db.commit()
+
+
 @router.post("/migration", response_model=MigrationResponse)
-def migrate_to_erp(body: MigrationRequest):
+def migrate_to_erp(body: MigrationRequest, db: Session = Depends(get_db)):
     bundle = _fetch_validation_data_from_s1(body.export_id)
     success, message, erp_reference = _run_erp_migration(bundle)
+    try:
+        _persist_migration_log(
+            db,
+            export_id=body.export_id,
+            bundle=bundle,
+            success=success,
+            message=message,
+            erp_reference=erp_reference,
+        )
+    except Exception:
+        logger.exception("Échec écriture journal ERP pour export_id=%s", body.export_id)
+        db.rollback()
+
     _notify_s1_migration_result(
         body.export_id,
         success=success,

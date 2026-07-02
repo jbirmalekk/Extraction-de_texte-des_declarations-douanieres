@@ -186,6 +186,7 @@ function ValidationPage() {
 	const [fields, setFields] = useState([]);
 	const [toast, setToast] = useState(null);
 	const [isFinalValidating, setIsFinalValidating] = useState(false);
+	const [isSavingDraft, setIsSavingDraft] = useState(false);
 	const [isCrossVerifying, setIsCrossVerifying] = useState(false);
 	const [readyForErp, setReadyForErp] = useState(false);
 	const [zoom, setZoom] = useState(100);
@@ -386,10 +387,38 @@ function ValidationPage() {
 		showToast('info', 'Formulaire réinitialisé aux données OCR d\'origine.');
 	};
 
-	const handleSaveChanges = () => {
-		if (persistDraft()) {
-			markDraftSaved();
-			showToast('success', 'Brouillon enregistré localement.');
+	const handleSaveChanges = async () => {
+		const localSaved = persistDraft();
+		if (!hasBackendLink) {
+			if (localSaved) {
+				markDraftSaved();
+				showToast(
+					'warning',
+					'Brouillon local uniquement : identifiant serveur manquant. Repassez par Import/OCR.'
+				);
+			}
+			return;
+		}
+
+		setIsSavingDraft(true);
+		try {
+			await persistDumToBackend('in_progress');
+			if (localSaved) {
+				markDraftSaved();
+			}
+			showToast(
+				'success',
+				'Brouillon enregistré (navigateur + serveur). Consultez l’historique (statut « En cours »).'
+			);
+		} catch (error) {
+			showToast(
+				'error',
+				error?.response?.data?.detail ||
+					error?.message ||
+					'Échec de l’enregistrement du brouillon sur le serveur.'
+			);
+		} finally {
+			setIsSavingDraft(false);
 		}
 	};
 
@@ -433,11 +462,8 @@ function ValidationPage() {
 		try {
 			await persistDumToBackend('valide');
 			setReadyForErp(true);
-			showToast(
-				'success',
-				'DUM validée. Vous pouvez l’envoyer vers l’ERP ou lancer la vérification croisée.'
-			);
-			setIsFinalValidating(false);
+			showToast('success', 'DUM validée. Redirection vers l’historique…');
+			navigate('/history');
 		} catch (error) {
 			showToast('error', error?.response?.data?.detail || error?.message || 'Validation finale echouee, veuillez reessayer.');
 			setIsFinalValidating(false);
@@ -822,11 +848,11 @@ function ValidationPage() {
 									type="button"
 									className="action-btn save"
 									onClick={handleSaveChanges}
-									disabled={isFinalValidating || isCrossVerifying}
-									title="Enregistrer le brouillon dans le navigateur"
+									disabled={isFinalValidating || isCrossVerifying || isSavingDraft}
+									title="Enregistrer le brouillon (local + serveur)"
 								>
 									<Save size={16} />
-									Enregistrer brouillon
+									{isSavingDraft ? 'Enregistrement…' : 'Enregistrer brouillon'}
 								</button>
 							</div>
 							<div className="validation-actions-primary">
@@ -870,7 +896,7 @@ function ValidationPage() {
 						</div>
 						<p className="validation-actions-help">
 							<strong>Annuler</strong> : quitter vers les résultats OCR.{' '}
-							<strong>Enregistrer brouillon</strong> : sauvegarde locale (auto toutes les 30 s si
+							<strong>Enregistrer brouillon</strong> : sauvegarde locale + serveur (auto locale toutes les 30 s si
 							modifications). <strong>Vérification croisée</strong> : enregistre puis ouvre la
 							réconciliation facture. <strong>Envoyer DUM vers ERP</strong> : après validation.
 						</p>

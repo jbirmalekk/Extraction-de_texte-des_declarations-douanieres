@@ -82,6 +82,62 @@ def _migrate_table_columns(table: str, additions: tuple[tuple[str, str, str], ..
                 conn.execute(text(f"ALTER TABLE {table} ADD {name} {sql_type}"))
 
 
+def _index_exists(insp, table: str, name: str) -> bool:
+    try:
+        return name in {idx.get("name") for idx in insp.get_indexes(table)}
+    except Exception:
+        return False
+
+
+def _migrate_invoices_dum_unique_index() -> None:
+    """
+    SQL Server : un UNIQUE classique n'autorise qu'une seule ligne avec dum_document_id NULL.
+    On remplace par un index unique filtré (unicité seulement si DUM liée).
+    """
+    insp = inspect(engine)
+    if "invoices" not in insp.get_table_names():
+        return
+
+    is_sqlite = connection_url.startswith("sqlite")
+    with engine.begin() as conn:
+        if is_sqlite:
+            for idx_name in ("ix_invoices_dum_document_id", "UQ_invoices_dum_document_id_not_null"):
+                try:
+                    conn.execute(text(f"DROP INDEX IF EXISTS {idx_name}"))
+                except Exception:
+                    pass
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_invoices_dum_document_id "
+                    "ON invoices (dum_document_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS UQ_invoices_dum_document_id_not_null "
+                    "ON invoices (dum_document_id) WHERE dum_document_id IS NOT NULL"
+                )
+            )
+            return
+
+        # SQL Server
+        if _index_exists(insp, "invoices", "ix_invoices_dum_document_id"):
+            conn.execute(text("DROP INDEX ix_invoices_dum_document_id ON invoices"))
+        if not _index_exists(insp, "invoices", "IX_invoices_dum_document_id"):
+            conn.execute(
+                text(
+                    "CREATE INDEX IX_invoices_dum_document_id ON invoices (dum_document_id)"
+                )
+            )
+        if not _index_exists(insp, "invoices", "UQ_invoices_dum_document_id_not_null"):
+            conn.execute(
+                text(
+                    "CREATE UNIQUE NONCLUSTERED INDEX UQ_invoices_dum_document_id_not_null "
+                    "ON invoices (dum_document_id) WHERE dum_document_id IS NOT NULL"
+                )
+            )
+
+
 def _migrate_invoices() -> None:
     _migrate_table_columns(
         "invoices",
@@ -119,6 +175,7 @@ def init_db() -> None:
         table.create(bind=engine, checkfirst=True)
 
     _migrate_invoices()
+    _migrate_invoices_dum_unique_index()
     _ensure_invoice_foreign_keys()
 
 
