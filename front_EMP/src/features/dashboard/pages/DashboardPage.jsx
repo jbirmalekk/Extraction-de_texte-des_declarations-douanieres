@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle, Clock, Database, FileText, FileUp, GitCompare } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import DocTypeBadge from '../components/ui/DocTypeBadge';
-import EmptyState from '../components/ui/EmptyState';
-import PageHeader from '../components/ui/PageHeader';
-import StatCard from '../components/ui/StatCard';
-import StatusBadge from '../components/ui/StatusBadge';
-import WorkflowTimeline from '../components/ui/WorkflowTimeline';
-import { useAuth } from '../hooks/useAuth';
-import { fetchUnifiedHistoryBatch } from '../services/historyService';
-import { fetchMyDashboard } from '../services/ocrService';
-import { mergeHistoryRows } from '../utils/historyUnified';
-import { getWorkflowProgressFromHistoryRow } from '../utils/workflowProgress';
+import DocTypeBadge from '@/shared/components/ui/DocTypeBadge';
+import EmptyState from '@/shared/components/ui/EmptyState';
+import PageHeader from '@/shared/components/ui/PageHeader';
+import StatCard from '@/shared/components/ui/StatCard';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
+import WorkflowTimeline from '@/shared/components/ui/WorkflowTimeline';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { fetchUnifiedHistoryBatch } from '@/shared/services/historyService';
+import { fetchMyDashboard } from '@/shared/services/ocrService';
+import { mergeHistoryRows } from '@/shared/utils/historyUnified';
+import { getWorkflowProgressFromHistoryRow } from '@/shared/utils/workflowProgress';
 
 const DEFAULT_STATS = [
 	{
@@ -70,29 +70,22 @@ function DashboardPage() {
 			setError('');
 
 			try {
-				const data = await fetchMyDashboard();
+				const [data, unified] = await Promise.all([
+					fetchMyDashboard(),
+					fetchUnifiedHistoryBatch({ skip: 0, limit: 8, type: 'all' }).catch(() => ({
+						dumHistory: [],
+						invoiceItems: [],
+					})),
+				]);
 				if (isActive) {
 					setDashboard(data || { stats: {}, recent_activity: [] });
-				}
-			} catch {
-				if (isActive) {
-					setError('Impossible de charger votre tableau de bord pour le moment.');
-				}
-			}
-
-			try {
-				const unified = await fetchUnifiedHistoryBatch({
-					skip: 0,
-					limit: 8,
-					type: 'all',
-				});
-				if (isActive) {
 					setRecentUnified(
-						mergeHistoryRows(unified.dumHistory, unified.invoiceItems).slice(0, 6)
+						mergeHistoryRows(unified.dumHistory || [], unified.invoiceItems || []).slice(0, 6)
 					);
 				}
 			} catch {
 				if (isActive) {
+					setError('Impossible de charger votre tableau de bord pour le moment.');
 					setRecentUnified([]);
 				}
 			} finally {

@@ -20,7 +20,7 @@ from .normalize_service import apply_post_parse_normalization
 from .register_service import register_page
 from .table_cell_mapper import map_fields_from_cells
 from .article_row_extractor import enrich_article_row_from_line
-from app.services.field_extractors import (
+from app.services.parsing.field_extractors import (
     apply_document_coherence,
     is_weak_candidate as _resolver_is_weak_candidate,
     is_coherent_value as _resolver_is_coherent_value,
@@ -36,6 +36,16 @@ from app.services.parser_rules.generic_party_extraction import (
     apply_generic_parties_to_data,
     _sync_parties_from_label_windows,
     template_exportateur_conflicts_label_window,
+)
+from app.services.parser_rules.party_referential import apply_party_referential_validation
+from app.services.parser_rules.embedded_pdf_layout import apply_embedded_pdf_layout
+from app.services.ocr.zone_debug import begin_debug_session, finalize_debug_session
+from app.services.ocr.pdf_text_service import (
+    detect_pdf_text_profile,
+    has_sufficient_embedded_text,
+    is_pdf_bytes,
+    pdf_page_count,
+    read_embedded_pdf_text,
 )
 from app.services.parser_rules.customs_helpers import (
     party_line_quality_score,
@@ -873,13 +883,96 @@ def _extract_article_rows_from_cells(cells, page: int = 1):
     return rows
 
 
+def _finalize_parsed_output(
+    parsed: dict,
+    *,
+    full_text: str,
+    filename: str,
+    template_party_snapshot: dict[str, Any] | None = None,
+) -> dict:
+    """Post-traitement commun (chemin OCR image ou PDF texte embarqué)."""
+    snapshot = template_party_snapshot or {}
+    parsed = apply_post_parse_normalization(parsed)
+    apply_document_coherence(parsed)
+    parsed = _drop_polluted_identity_fields(parsed)
+    parsed = _apply_high_priority_fallbacks(parsed, full_text)
+    parsed = _apply_strict_business_resolver(parsed)
+    parsed = _apply_late_field_rescues(parsed, full_text)
+    parsed = _restore_template_party_fields(parsed, snapshot, full_text=full_text)
+    sync_reasons = set(parsed.get("field_reject_reasons") or [])
+    _sync_parties_from_label_windows(parsed, full_text, sync_reasons)
+    parsed["field_reject_reasons"] = sorted(sync_reasons)
+    parsed = _sanitize_noisy_geo_fields(parsed)
+    parsed = apply_party_referential_validation(parsed)
+    parsed["fichier"] = filename
+    if settings.OCR_DEBUG_ZONES:
+        logger.info(
+            "[OCR DEBUG] process_document done registration_quality=%s zone_conflicts=%s reject_reasons=%s",
+            parsed.get("registration_quality"),
+            parsed.get("zone_conflict_flags"),
+            parsed.get("field_reject_reasons"),
+        )
+        finalize_debug_session(parsed)
+    return _apply_quality_guardrails(parsed)
+
+
+def _process_from_embedded_text(
+    file_bytes: bytes,
+    embedded_text: str,
+    *,
+    filename: str,
+    extraction_warnings: list[str] | None = None,
+) -> dict:
+    """Chemin rapide : PDF avec couche texte → parsing direct (sans OCR image)."""
+    full_text = embedded_text
+    parsed = parse_document(full_text)
+    parsed["texte_brut"] = full_text
+    parsed["texte_nettoye"] = clean_ocr_text(full_text)
+    parsed["nb_pages"] = pdf_page_count(file_bytes) or 1
+    parsed["extraction_mode"] = "pdf_embedded_text"
+    parsed["pdf_text_profile"] = detect_pdf_text_profile(full_text)
+    parsed["ocr_engine_used"] = "pdf_text"
+    warns = list(extraction_warnings or [])
+    if warns:
+        parsed["extraction_warnings"] = warns
+    parsed["template_quality"] = {
+        "strategy": "pdf_embedded_text",
+        "dynamic_anchor_count": 0,
+        "dynamic_field_count": 0,
+        "dynamic_coverage_ratio": 0.0,
+        "fixed_fallback_count": 0,
+    }
+    logger.info(
+        "[OCR] embedded_text path profile=%s pages=%s chars=%s filename=%s",
+        parsed.get("pdf_text_profile"),
+        parsed.get("nb_pages"),
+        len(full_text),
+        filename,
+    )
+    return apply_embedded_pdf_layout(
+        _finalize_parsed_output(parsed, full_text=full_text, filename=filename),
+        full_text,
+    )
+
+
 def process_document(file_bytes: bytes,
                      filename: str = "document.jpg",
                      fast_mode: bool = False,
                      use_deskew: bool = True,
                      ocr_scale: float = 2.0) -> dict:
+    if settings.OCR_PDF_TEXT_ENABLED and is_pdf_bytes(file_bytes):
+        embedded_text, pdf_warns = read_embedded_pdf_text(file_bytes)
+        if has_sufficient_embedded_text(embedded_text):
+            return _process_from_embedded_text(
+                file_bytes,
+                embedded_text,
+                filename=filename,
+                extraction_warnings=pdf_warns,
+            )
+
     pages = ingest_pages(file_bytes)
     if settings.OCR_DEBUG_ZONES:
+        begin_debug_session(filename=filename)
         logger.info("[OCR DEBUG] process_document start pages=%s filename=%s fast_mode=%s", len(pages) if pages else 0, filename, fast_mode)
     if not pages:
         return {"erreur": "image non chargee", "fichier": filename}
@@ -1051,9 +1144,6 @@ def process_document(file_bytes: bytes,
         parsed[key] = value
         resolution_notes[key] = {"winner": "table_cell_mapper"}
 
-    parsed = apply_post_parse_normalization(parsed)
-    apply_document_coherence(parsed)
-
     parsed["fichier"] = filename
     parsed["texte_brut"] = full_text
     parsed["texte_nettoye"] = clean_ocr_text(full_text)
@@ -1095,19 +1185,9 @@ def process_document(file_bytes: bytes,
         parsed["flags_validation"] = sorted(existing_flags.union(zone_conflict_flags))
 
     parsed = _drop_polluted_identity_fields(parsed)
-    parsed = _apply_high_priority_fallbacks(parsed, full_text)
-    parsed = _apply_strict_business_resolver(parsed)
-    parsed = _apply_late_field_rescues(parsed, full_text)
-    parsed = _restore_template_party_fields(parsed, template_party_snapshot, full_text=full_text)
-    sync_reasons = set(parsed.get("field_reject_reasons") or [])
-    _sync_parties_from_label_windows(parsed, full_text, sync_reasons)
-    parsed["field_reject_reasons"] = sorted(sync_reasons)
-    parsed = _sanitize_noisy_geo_fields(parsed)
-    if settings.OCR_DEBUG_ZONES:
-        logger.info(
-            "[OCR DEBUG] process_document done registration_quality=%s zone_conflicts=%s reject_reasons=%s",
-            parsed.get("registration_quality"),
-            parsed.get("zone_conflict_flags"),
-            parsed.get("field_reject_reasons"),
-        )
-    return _apply_quality_guardrails(parsed)
+    return _finalize_parsed_output(
+        parsed,
+        full_text=full_text,
+        filename=filename,
+        template_party_snapshot=template_party_snapshot,
+    )

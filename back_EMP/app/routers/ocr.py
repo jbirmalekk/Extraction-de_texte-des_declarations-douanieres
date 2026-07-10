@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Header, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import String
@@ -32,7 +33,7 @@ from app.models.schemas import (
     BulkDeleteIdsSchema,
 )
 from app.routers.auth import get_current_user
-from app.services.document_file_storage import (
+from app.services.storage.document_file_storage import (
     delete_local_document_file,
     document_has_stored_file,
     find_local_document_by_id,
@@ -41,13 +42,13 @@ from app.services.document_file_storage import (
     read_local_document_file,
     save_local_document_file,
 )
-from app.services.nextcloud_storage import (
+from app.services.storage.nextcloud_storage import (
     NextcloudUploadError,
     download_file_from_nextcloud,
     upload_file_to_nextcloud,
 )
 from app.services.pipeline import process_document
-from app.services.document_quality import assess_upload_document
+from app.services.quality.document_quality import assess_upload_document
 
 router = APIRouter(prefix="/api", tags=["OCR"])
 
@@ -229,7 +230,10 @@ async def extract_declaration(
     file_bytes = await file.read()
     original_filename = file.filename or "document"
 
-    document_quality = assess_upload_document(file_bytes, file.content_type)
+    # Analyse qualité (CPU) déléguée au threadpool : ne bloque pas l'event loop.
+    document_quality = await run_in_threadpool(
+        assess_upload_document, file_bytes, file.content_type
+    )
     if document_quality.get("block"):
         raise HTTPException(
             status_code=422,
@@ -243,7 +247,9 @@ async def extract_declaration(
     nextcloud_error: str | None = None
 
     try:
-        nextcloud_meta = upload_file_to_nextcloud(
+        # Upload GED = I/O réseau bloquant (requests) → threadpool.
+        nextcloud_meta = await run_in_threadpool(
+            upload_file_to_nextcloud,
             file_bytes=file_bytes,
             filename=original_filename,
             content_type=file.content_type,
@@ -275,7 +281,10 @@ async def extract_declaration(
             fallback_reason = "nextcloud-upload-error"
 
     try:
-        result = process_document(
+        # OCR = tâche CPU longue (plusieurs secondes) → threadpool obligatoire,
+        # sinon tout le serveur est bloqué pendant l'extraction.
+        result = await run_in_threadpool(
+            process_document,
             file_bytes=file_bytes,
             filename=original_filename,
             fast_mode=fast_mode,

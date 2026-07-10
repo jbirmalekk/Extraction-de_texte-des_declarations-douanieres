@@ -1,11 +1,11 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatMoney } from './compareDisplay';
+import { formatMoney } from '@/shared/utils/compareDisplay';
 import {
 	buildDumDisplayLine,
 	buildInvoiceDisplayLine,
 	buildReconciliationPairRef,
-} from './crossVerifyDisplay';
+} from '@/shared/utils/crossVerifyDisplay';
 
 const formatDateFr = (iso) => {
 	if (!iso) {

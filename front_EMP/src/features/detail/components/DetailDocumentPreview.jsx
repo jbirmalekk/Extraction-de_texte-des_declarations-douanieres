@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileText, ZoomIn, ZoomOut } from 'lucide-react';
-import { useDocumentFilePreview } from '../../hooks/useDocumentFilePreview';
-import { resolveStoredDocumentPreview } from '../../utils/compareDocumentPreview';
+import { useDocumentFilePreview } from '@/shared/hooks/useDocumentFilePreview';
+import { resolveStoredDocumentPreview } from '@/shared/utils/compareDocumentPreview';
 import './DetailDocumentPreview.css';
 
 function DetailDocumentPreview({

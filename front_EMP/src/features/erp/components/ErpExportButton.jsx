@@ -6,7 +6,7 @@ import {
 	getErpExportGate,
 	getErpExportLabel,
 	requestErpExport,
-} from '../../utils/erpExport';
+} from '@/shared/utils/erpExport';
 import './ErpExportButton.css';
 
 function ErpExportButton({

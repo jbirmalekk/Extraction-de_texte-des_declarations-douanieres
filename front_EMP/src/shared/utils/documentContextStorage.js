@@ -1,10 +1,10 @@
-import { fetchDumSourcePreview, fetchInvoiceSourcePreview } from '../services/documentPreviewApi';
-import { fetchInvoiceById } from '../services/invoiceApi';
-import { fetchDocumentDetail } from '../services/ocrService';
-import { resolveStoredDocumentPreview } from './compareDocumentPreview';
-import { writeSessionDocumentPreview } from './documentPreviewCache';
-import { mapInvoiceBackendToFields } from './invoiceFields';
-import { mapBackendResultToFields } from './ocrFields';
+import { fetchDumSourcePreview, fetchInvoiceSourcePreview } from '@/shared/services/documentPreviewApi';
+import { fetchInvoiceById } from '@/shared/services/invoiceApi';
+import { fetchDocumentDetail } from '@/shared/services/ocrService';
+import { resolveStoredDocumentPreview } from '@/shared/utils/compareDocumentPreview';
+import { writeSessionDocumentPreview } from '@/shared/utils/documentPreviewCache';
+import { mapInvoiceBackendToFields } from '@/shared/utils/invoiceFields';
+import { mapBackendResultToFields } from '@/shared/utils/ocrFields';
 
 const persistJson = (key, payload) => {
 	try {

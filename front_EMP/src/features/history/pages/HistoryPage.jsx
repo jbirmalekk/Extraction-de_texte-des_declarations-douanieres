@@ -13,31 +13,31 @@ import {
 	Users,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '@/shared/hooks/useAuth';
 import {
 	deleteHistoryRows,
 	fetchUnifiedHistoryBatch,
 	HISTORY_BATCH_SIZE,
-} from '../services/historyService';
+} from '@/shared/services/historyService';
 import {
 	computeHistoryStats,
 	exportHistoryToCsv,
 	filterHistoryRows,
 	mergeHistoryRows,
-} from '../utils/historyUnified';
-import { beginReconciliationSession } from '../utils/crossVerificationSession';
+} from '@/shared/utils/historyUnified';
+import { beginReconciliationSession } from '@/shared/utils/crossVerificationSession';
 import {
 	hydrateDumContextFromApi,
 	hydrateInvoiceContextFromApi,
-} from '../utils/documentContextStorage';
-import ErpExportButton from '../components/Erp/ErpExportButton';
-import DocRefCell from '../components/ui/DocRefCell';
-import DocTypeBadge from '../components/ui/DocTypeBadge';
-import EmptyState from '../components/ui/EmptyState';
-import ReconciliationCell from '../components/ui/ReconciliationCell';
-import PageHeader from '../components/ui/PageHeader';
-import StatCard from '../components/ui/StatCard';
-import StatusBadge from '../components/ui/StatusBadge';
+} from '@/shared/utils/documentContextStorage';
+import ErpExportButton from '@/features/erp/components/ErpExportButton';
+import DocRefCell from '@/shared/components/ui/DocRefCell';
+import DocTypeBadge from '@/shared/components/ui/DocTypeBadge';
+import EmptyState from '@/shared/components/ui/EmptyState';
+import ReconciliationCell from '@/shared/components/ui/ReconciliationCell';
+import PageHeader from '@/shared/components/ui/PageHeader';
+import StatCard from '@/shared/components/ui/StatCard';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
 import {
 	getHistoryErpExportTarget,
 	historyReportInvoiceId,
@@ -46,7 +46,7 @@ import {
 	showHistoryReconcileButton,
 	showHistoryReportLink,
 	showHistoryValidationButton,
-} from '../utils/workflowActions';
+} from '@/shared/utils/workflowActions';
 import './HistoryPage.css';
 
 function HistoryRowActions({

@@ -1,5 +1,5 @@
-import DocTypeBadge from './DocTypeBadge';
-import WorkflowTimeline from './WorkflowTimeline';
+import DocTypeBadge from '@/shared/components/ui/DocTypeBadge';
+import WorkflowTimeline from '@/shared/components/ui/WorkflowTimeline';
 import './ui.css';
 
 function ValidationContextStrip({

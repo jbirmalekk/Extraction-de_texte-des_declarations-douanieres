@@ -1,5 +1,5 @@
-import apiClient from './api';
-import { INVOICE_LIST_TIMEOUT_MS, invoiceApiClient } from './invoiceApi';
+import apiClient from '@/shared/services/api';
+import { INVOICE_LIST_TIMEOUT_MS, invoiceApiClient } from '@/shared/services/invoiceApi';
 
 const PREVIEW_FILE_TIMEOUT_MS = INVOICE_LIST_TIMEOUT_MS;
 

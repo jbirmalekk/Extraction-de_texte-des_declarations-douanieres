@@ -1,5 +1,5 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
-import { getMe, login as loginService, logout as logoutService, logoutAllSessions as logoutAllService } from '../services/authService';
+import { getMe, login as loginService, logout as logoutService, logoutAllSessions as logoutAllService } from '@/shared/services/authService';
 
 export const AuthContext = createContext({
 	user: null,

@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600&display=swap');
-@import './styles/theme.css';
-@import './components/ui/ui.css';
+@import './shared/styles/theme.css';
+@import './shared/components/ui/ui.css';
 
 @tailwind base;
 @tailwind components;

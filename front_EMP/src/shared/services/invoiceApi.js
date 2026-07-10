@@ -1,5 +1,5 @@
 import axios from 'axios';
-import apiClient, { API_BASE_URL } from './api';
+import apiClient, { API_BASE_URL } from '@/shared/services/api';
 
 /**
  * Factures via proxy back_EMP (/api/invoices) — même session JWT (cookies).

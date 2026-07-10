@@ -1,11 +1,11 @@
 import re
 import logging
 
-from .ocr.recognition_service import recognize_detailed
-from .ocr.field_schema import FIELD_ZONES, validate_isolated_non_overlap
-from .ocr.dynamic_field_mapper import extract_dynamic_fields
-from .ocr.header_cell_ocr import extract_header_cell_fields
-from .ocr.zone_debug import save_zone_crop
+from app.services.ocr.recognition_service import recognize_detailed
+from app.services.ocr.field_schema import FIELD_ZONES, validate_isolated_non_overlap
+from app.services.ocr.dynamic_field_mapper import extract_dynamic_fields
+from app.services.ocr.header_cell_ocr import extract_header_cell_fields
+from app.services.ocr.zone_debug import save_zone_crop
 from app.config import settings
 from app.services.parser_rules.customs_helpers import extract_titre_ce_pair, _looks_like_garbled_party_name
 
@@ -1315,6 +1315,16 @@ def extract_template_fields(img, fast_mode=False, ocr_scale=2.0):
             )
             text = details["text"]
             cleaned = _clean_text(text)
+            if settings.OCR_DEBUG_ZONES:
+                save_zone_crop(
+                    img,
+                    zone.name,
+                    box,
+                    tag="fixed_zone",
+                    ocr_text=text,
+                    confidence=float(details.get("confidence") or 0.0),
+                    engine=str(details.get("engine") or ""),
+                )
             if cleaned:
                 raw[zone.name] = cleaned
                 fixed_fallback_blocks.append(zone.name)
@@ -1334,8 +1344,6 @@ def extract_template_fields(img, fast_mode=False, ocr_scale=2.0):
             continue
 
         box = _box_by_ratio(img, zone.ratio)
-        if settings.OCR_DEBUG_ZONES:
-            save_zone_crop(img, zone.name, box, tag="fixed_zone")
         details = _recognize_zone_with_roi_expand(
             img,
             zone.ratio,
@@ -1356,6 +1364,16 @@ def extract_template_fields(img, fast_mode=False, ocr_scale=2.0):
         )
         text = details["text"]
         cleaned = _clean_text(text)
+        if settings.OCR_DEBUG_ZONES:
+            save_zone_crop(
+                img,
+                zone.name,
+                box,
+                tag="fixed_zone",
+                ocr_text=text,
+                confidence=float(details.get("confidence") or 0.0),
+                engine=str(details.get("engine") or ""),
+            )
         if cleaned:
             if zone.name not in raw or zone.name in STRICT_NUMERIC_ZONES:
                 raw[zone.name] = cleaned

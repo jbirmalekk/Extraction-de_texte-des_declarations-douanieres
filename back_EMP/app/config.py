@@ -61,12 +61,16 @@ class Settings(BaseSettings):
     OCR_PREPROCESS_ENHANCE: bool = os.getenv("OCR_PREPROCESS_ENHANCE", "true").lower() in ("true", "1", "yes")
     OCR_ENABLE_HEADER_CELL_OCR: bool = os.getenv("OCR_ENABLE_HEADER_CELL_OCR", "true").lower() in ("true", "1", "yes")
     OCR_DEBUG_SAVE_DIR: str = os.getenv("OCR_DEBUG_SAVE_DIR", "").strip()
+    OCR_IMPORTATEUR_REFERENTIAL_PATH: str = os.getenv("OCR_IMPORTATEUR_REFERENTIAL_PATH", "").strip()
     # Phase 3 — sauvetages par marque connue (démo / tests ; désactivé en prod par défaut)
     OCR_ENABLE_BRAND_RESCUES: bool = os.getenv("OCR_ENABLE_BRAND_RESCUES", "false").lower() in (
         "true",
         "1",
         "yes",
     )
+    # PDF avec couche texte (déclarations digitalisées) : extraction directe sans OCR image
+    OCR_PDF_TEXT_ENABLED: bool = os.getenv("OCR_PDF_TEXT_ENABLED", "true").lower() in ("true", "1", "yes")
+    OCR_PDF_TEXT_MIN_CHARS: int = int(os.getenv("OCR_PDF_TEXT_MIN_CHARS", "400"))
 
     # Nextcloud GED (WebDAV)
     NEXTCLOUD_ENABLED: bool = os.getenv("NEXTCLOUD_ENABLED", "false").lower() in ("true", "1", "yes")

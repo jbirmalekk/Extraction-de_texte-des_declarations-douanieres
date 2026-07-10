@@ -1,7 +1,7 @@
 import { CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { verifyEmail } from '../services/userService';
+import { verifyEmail } from '@/shared/services/userService';
 
 function VerifyEmailPage() {
 	const [searchParams] = useSearchParams();

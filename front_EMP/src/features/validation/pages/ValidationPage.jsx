@@ -13,26 +13,26 @@ import {
 	ZoomOut,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import ErpExportButton from '../components/Erp/ErpExportButton';
-import ValidationContextStrip from '../components/ui/ValidationContextStrip';
-import WorkflowBreadcrumb from '../components/Workflow/WorkflowBreadcrumb';
-import { ERP_EXPORT } from '../utils/erpExport';
-import { getWorkflowProgressForValidation } from '../utils/workflowProgress';
-import { fieldNeedsCorrection } from '../utils/validationFieldFilters';
-import { fetchLatestOcrCorrections, validateOcrDocument } from '../services/ocrService';
-import { useValidationDraft } from '../hooks/useValidationDraft';
-import { buildBackendValidationPayload } from '../utils/ocrFields';
-import { snapshotPreview } from '../utils/compareDocumentPreview';
-import { saveCrossVerificationSession } from '../utils/crossVerificationSession';
-import { buildGroupedFilteredFields } from '../utils/validationFieldFilters';
+import ErpExportButton from '@/features/erp/components/ErpExportButton';
+import ValidationContextStrip from '@/shared/components/ui/ValidationContextStrip';
+import WorkflowBreadcrumb from '@/shared/components/workflow/WorkflowBreadcrumb';
+import { ERP_EXPORT } from '@/shared/utils/erpExport';
+import { getWorkflowProgressForValidation } from '@/shared/utils/workflowProgress';
+import { fieldNeedsCorrection } from '@/shared/utils/validationFieldFilters';
+import { fetchLatestOcrCorrections, validateOcrDocument } from '@/shared/services/ocrService';
+import { useValidationDraft } from '@/features/validation/hooks/useValidationDraft';
+import { buildBackendValidationPayload } from '@/shared/utils/ocrFields';
+import { snapshotPreview } from '@/shared/utils/compareDocumentPreview';
+import { saveCrossVerificationSession } from '@/shared/utils/crossVerificationSession';
+import { buildGroupedFilteredFields } from '@/shared/utils/validationFieldFilters';
 import {
 	hydrateDumContextFromApi,
 	syncDumLatestFromValidationPayload,
-} from '../utils/documentContextStorage';
-import { useDocumentFilePreview } from '../hooks/useDocumentFilePreview';
-import { useAuth } from '../hooks/useAuth';
+} from '@/shared/utils/documentContextStorage';
+import { useDocumentFilePreview } from '@/shared/hooks/useDocumentFilePreview';
+import { useAuth } from '@/shared/hooks/useAuth';
 import './ValidationPage.css';
-import '../components/Workflow/WorkflowBreadcrumb.css';
+import '@/shared/components/workflow/WorkflowBreadcrumb.css';
 
 const NON_EDITABLE_SECTIONS = new Set(['Listes', 'Qualite OCR', 'Metadonnees']);
 

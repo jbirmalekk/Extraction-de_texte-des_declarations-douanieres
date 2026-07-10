@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchDumSourcePreview, fetchInvoiceSourcePreview } from '../services/documentPreviewApi';
-import { resolveStoredDocumentPreview } from '../utils/compareDocumentPreview';
+import { fetchDumSourcePreview, fetchInvoiceSourcePreview } from '@/shared/services/documentPreviewApi';
+import { resolveStoredDocumentPreview } from '@/shared/utils/compareDocumentPreview';
 import {
 	isEphemeralBlobUrl,
 	isUsableCachedPreview,
 	removeSessionDocumentPreview,
-} from '../utils/documentPreviewCache';
-import { cacheDocumentPreview } from '../utils/documentContextStorage';
+} from '@/shared/utils/documentPreviewCache';
+import { cacheDocumentPreview } from '@/shared/utils/documentContextStorage';
 
 const hasDataUrl = (doc) => Boolean(doc?.dataUrl && typeof doc.dataUrl === 'string');
 

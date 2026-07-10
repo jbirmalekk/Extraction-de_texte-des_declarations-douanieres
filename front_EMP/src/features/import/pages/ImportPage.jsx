@@ -1,28 +1,26 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, FileBadge2, ShieldCheck, Sparkles, Upload } from 'lucide-react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import DropZone from '../components/Import/DropZone';
-import FilePreview from '../components/Import/FilePreview';
-import FileTypeSelector from '../components/Import/FileTypeSelector';
-import ImageCropper from '../components/Import/ImageCropper';
-import UploadProgress from '../components/Import/UploadProgress';
-import { createInvoiceFromUpload, fetchInvoiceById } from '../services/invoiceApi';
-import { extractOcrDocument } from '../services/ocrService';
-import { mapInvoiceBackendToFields } from '../utils/invoiceFields';
-import { DEFAULT_DOCUMENT_ID, mapBackendResultToFields } from '../utils/ocrFields';
+import {
+	AlertTriangle,
+	CheckCircle2,
+	FileBadge2,
+	Loader2,
+	ShieldCheck,
+	Sparkles,
+	Upload,
+	XCircle,
+} from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import DropZone from '@/features/import/components/DropZone';
+import FilePreview from '@/features/import/components/FilePreview';
+import FileTypeSelector from '@/features/import/components/FileTypeSelector';
+import ImageCropper from '@/features/import/components/ImageCropper';
+import UploadProgress from '@/features/import/components/UploadProgress';
 import {
 	looksLikeDumFileName,
 	looksLikeInvoiceFileName,
-	setLastExtractionType,
-} from '../utils/extractionRouting';
-import {
-	consumeCrossVerifyImportReturn,
-	getCrossVerificationSession,
-	markCrossVerifyImportReturn,
-	updateCrossVerificationSession,
-} from '../utils/crossVerificationSession';
-import { useAuth } from '../hooks/useAuth';
-import { writeSessionDocumentPreview } from '../utils/documentPreviewCache';
+} from '@/shared/utils/extractionRouting';
+import { markCrossVerifyImportReturn } from '@/shared/utils/crossVerificationSession';
+import { useExtractionJobs } from '@/shared/store/ExtractionJobsContext';
 
 const fileTypeOptions = [
 	{
@@ -37,78 +35,7 @@ const fileTypeOptions = [
 		description: 'Capture vendeur, client et details de lignes',
 		badge: 'Nouveau',
 	},
-	
 ];
-
-const readFileAsDataUrl = (file) =>
-	new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = () => resolve(reader.result);
-		reader.onerror = () => reject(new Error('Impossible de lire le document.'));
-		reader.readAsDataURL(file);
-	});
-
-const RAW_RESULT_STORAGE_EXCLUDE = new Set(['texte_brut', 'texte_nettoye']);
-
-const buildStoredRawResult = (result) => {
-	if (!result || typeof result !== 'object') {
-		return result;
-	}
-
-	return Object.fromEntries(
-		Object.entries(result).filter(([key]) => !RAW_RESULT_STORAGE_EXCLUDE.has(key))
-	);
-};
-
-const persistJsonSafely = (key, payload) => {
-	try {
-		localStorage.setItem(key, JSON.stringify(payload));
-		return true;
-	} catch (error) {
-		console.warn(`Impossible de sauvegarder ${key} dans localStorage`, error);
-		return false;
-	}
-};
-
-const persistBatchItemSnapshot = (index, payload) => {
-	try {
-		sessionStorage.setItem(`ocr_batch_item_${index}`, JSON.stringify(payload));
-		return true;
-	} catch (error) {
-		console.warn(`Impossible de sauvegarder le lot #${index}`, error);
-		return false;
-	}
-};
-
-const clearBatchItemSnapshots = (count) => {
-	for (let i = 0; i < count; i += 1) {
-		sessionStorage.removeItem(`ocr_batch_item_${i}`);
-	}
-};
-
-const clearPreviousOcrDraft = () => {
-	localStorage.removeItem('ocr_validation_payload');
-	localStorage.removeItem('ocr_latest_result');
-	localStorage.removeItem('ocr_uploaded_document');
-};
-
-const clearPreviousInvoiceDraft = () => {
-	localStorage.removeItem('invoice_validation_payload');
-	localStorage.removeItem('invoice_latest_result');
-	localStorage.removeItem('invoice_uploaded_document');
-};
-
-const persistDocumentPreview = (source) => {
-	const docId = source?.documentId ?? source?.backendId;
-	if (docId != null) {
-		writeSessionDocumentPreview('dum', docId, source);
-	}
-	if (persistJsonSafely('ocr_uploaded_document', source)) {
-		return;
-	}
-	const { dataUrl: _dataUrl, ...sourceMeta } = source;
-	persistJsonSafely('ocr_uploaded_document', sourceMeta);
-};
 
 const fileFingerprint = (file) => `${file.name}::${file.size}::${file.lastModified}`;
 
@@ -119,62 +46,114 @@ const mergeSelectedFiles = (existing, incoming) => {
 	return Array.from(map.values());
 };
 
-const formatApiDetail = (detail) => {
-	if (!detail) {
-		return null;
-	}
-	if (typeof detail === 'string') {
-		return detail;
-	}
-	if (typeof detail === 'object') {
-		return [detail.message, detail.hint, detail.error].filter(Boolean).join(' — ');
-	}
-	return String(detail);
+const jobStatusLabel = {
+	pending: 'En attente',
+	processing: 'Extraction…',
+	done: 'Terminé',
+	error: 'Erreur',
 };
 
-const getUploadErrorMessage = (error, isInvoice) => {
-	const detail = formatApiDetail(error?.response?.data?.detail);
-	if (error?.code === 'ECONNABORTED') {
-		return isInvoice
-			? "Delai depasse lors de l'extraction facture. Reessayez dans quelques instants."
-			: "Delai depasse lors de l'extraction DUM. Reessayez dans quelques instants.";
-	}
-	if (error?.message === 'Network Error' || !error?.response) {
-		return (
-			'Le serveur OCR a echoue (erreur reseau ou 500). Verifiez que back_EMP tourne sur le port 8000 ' +
-			'et que Tesseract OCR est installe (voir logs uvicorn).'
-		);
-	}
+function ExtractionRunningView({ extraction }) {
+	const doneCount = extraction.jobs.filter((j) => j.status === 'done').length;
+	const errorCount = extraction.jobs.filter((j) => j.status === 'error').length;
+
 	return (
-		detail ||
-		error?.response?.data?.message ||
-		error?.message ||
-		"L'extraction a echoue."
-	);
-};
+		<div className="import-page-container modern-import">
+			<section className="dashboard-hero modern import-hero-modern fade-up">
+				<div>
+					<p className="hero-pill">Flux OCR</p>
+					<h1>Extraction en cours</h1>
+					<p className="subtitle">
+						L&apos;extraction de {extraction.total} document{extraction.total > 1 ? 's' : ''} est en cours.
+						Vous pouvez naviguer vers d&apos;autres pages : le traitement continue et vous serez redirigé
+						automatiquement à la fin.
+					</p>
+				</div>
+				<div className="import-hero-badges">
+					<span className="import-hero-chip">
+						<Loader2 size={14} className="spin" /> {doneCount}/{extraction.total} traités
+					</span>
+					{errorCount > 0 ? (
+						<span className="import-hero-chip">
+							<AlertTriangle size={14} /> {errorCount} erreur{errorCount > 1 ? 's' : ''}
+						</span>
+					) : null}
+				</div>
+			</section>
 
-const buildDocumentId = (backendResult) => {
-	if (backendResult?.numero_declaration) {
-		return backendResult.numero_declaration;
-	}
-	if (backendResult?.id) {
-		const year = new Date().getFullYear();
-		const serial = String(backendResult.id).padStart(4, '0');
-		return `INV-${year}-${serial}`;
-	}
-	return DEFAULT_DOCUMENT_ID;
-};
+			<div className="import-modern-layout fade-up">
+				<section className="import-panel import-modern-panel">
+					<div className="import-panel-head">
+						<p className="import-panel-kicker">Traitement</p>
+						<h2>Progression de l&apos;extraction</h2>
+					</div>
+
+					<UploadProgress
+						progress={extraction.progress}
+						status="uploading"
+						detail={extraction.detail}
+					/>
+
+					<div className="import-jobs-list">
+						{extraction.jobs.map((job, index) => (
+							<div key={`${job.fileName}-${index}`} className={`import-job-row ${job.status}`}>
+								<span className="import-job-icon" aria-hidden="true">
+									{job.status === 'done' ? (
+										<CheckCircle2 size={16} />
+									) : job.status === 'error' ? (
+										<XCircle size={16} />
+									) : job.status === 'processing' ? (
+										<Loader2 size={16} className="spin" />
+									) : (
+										<span className="import-step-dot" />
+									)}
+								</span>
+								<span className="import-job-name">{job.fileName}</span>
+								<span className={`import-job-status ${job.status}`}>
+									{jobStatusLabel[job.status] || job.status}
+								</span>
+							</div>
+						))}
+					</div>
+
+					<p className="import-note">
+						Astuce : ouvrez l&apos;<Link to="/history" className="auth-link">historique</Link> ou une autre page
+						pendant l&apos;extraction — cette progression restera visible en revenant ici.
+					</p>
+				</section>
+
+				<aside className="import-modern-side">
+					<section className="import-side-card">
+						<p className="import-side-kicker">Suivi instantane</p>
+						<h3>Etat du traitement</h3>
+						<p className="import-side-status uploading">Extraction en cours</p>
+						<p className="import-side-detail">{extraction.detail}</p>
+						<div className="import-side-meter">
+							<span style={{ width: `${extraction.progress}%` }} />
+						</div>
+						<p className="import-side-percent">{Math.round(extraction.progress)}%</p>
+					</section>
+
+					<section className="import-side-card import-side-tip">
+						<Sparkles size={16} />
+						<p>
+							À la fin, vous serez redirigé vers{' '}
+							{extraction.isBatch ? 'la liste des documents extraits' : 'la page de résultats'} pour lancer
+							la vérification.
+						</p>
+					</section>
+				</aside>
+			</div>
+		</div>
+	);
+}
 
 function ImportPage() {
-	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
-	const { user } = useAuth();
+	const extraction = useExtractionJobs();
 	const returnToCrossVerify = searchParams.get('returnTo') === 'cross-verification';
 	const [selectedFiles, setSelectedFiles] = useState([]);
 	const [selectedType, setSelectedType] = useState(fileTypeOptions[0].id);
-	const [uploadStatus, setUploadStatus] = useState('idle');
-	const [uploadProgress, setUploadProgress] = useState(0);
-	const [uploadDetail, setUploadDetail] = useState('');
 	const [errorMessage, setErrorMessage] = useState('');
 	const [activeCropKey, setActiveCropKey] = useState(null);
 	const [activeCropImageUrl, setActiveCropImageUrl] = useState('');
@@ -221,8 +200,6 @@ function ImportPage() {
 			setSelectedType('declaration');
 		}
 		setSelectedFiles((prev) => mergeSelectedFiles(prev, normalizedFiles));
-		setUploadStatus('ready');
-		setUploadProgress(0);
 		setErrorMessage('');
 	};
 
@@ -258,8 +235,6 @@ function ImportPage() {
 		setSelectedFiles([]);
 		setActiveCropKey(null);
 		setCroppedFilesByKey({});
-		setUploadStatus('idle');
-		setUploadProgress(0);
 		setErrorMessage('');
 	};
 
@@ -279,11 +254,9 @@ function ImportPage() {
 				setActiveCropKey(null);
 			}
 		}
-
-		setUploadStatus(selectedFiles.length > 1 ? 'ready' : 'idle');
 	};
 
-	const startUpload = async () => {
+	const startUpload = () => {
 		if (!selectedFiles.length) {
 			return;
 		}
@@ -310,279 +283,44 @@ function ImportPage() {
 			}
 		}
 
-		setUploadStatus('uploading');
-		setUploadProgress(0);
-		setUploadDetail('');
 		setErrorMessage('');
-
-		try {
-			const isSingleUpload = selectedFiles.length === 1;
-			const filesToProcess = selectedFiles.map(
-				(file) => croppedFilesByKey[fileFingerprint(file)] || file
-			);
-			const isBatch = !isSingleUpload;
-			const batchRows = [];
-			if (isBatch) {
-				clearBatchItemSnapshots(50);
-			}
-
-			for (let index = 0; index < filesToProcess.length; index += 1) {
-				const originalFile = selectedFiles[index];
-				const fileForOcr = filesToProcess[index];
-				const originalKey = fileFingerprint(originalFile);
-				const progressBase = Math.round((index / filesToProcess.length) * 100);
-				setUploadProgress(progressBase);
-				setUploadDetail(`Traitement ${index + 1}/${filesToProcess.length} : ${fileForOcr.name}`);
-
-				try {
-					const dataUrl = await readFileAsDataUrl(fileForOcr);
-					const source = {
-						name: fileForOcr.name,
-						type: fileForOcr.type,
-						size: fileForOcr.size,
-						lastModified: fileForOcr.lastModified,
-						isCropped: Boolean(croppedFilesByKey[originalKey]),
-						dataUrl,
-					};
-
-					if (uploadDocumentType === 'invoice') {
-						const result = await createInvoiceFromUpload(fileForOcr);
-						await fetchInvoiceById(result.id);
-						const documentId = result?.numero_facture || `FACT-${result?.id ?? index + 1}`;
-						const fields = mapInvoiceBackendToFields(result);
-						const rawForStorage = { ...result };
-
-						if (!isBatch && index === 0) {
-							clearPreviousInvoiceDraft();
-							clearPreviousOcrDraft();
-							const invoicePreviewPayload = {
-								...source,
-								invoiceId: result?.id ?? null,
-							};
-							writeSessionDocumentPreview('invoice', result?.id, invoicePreviewPayload);
-							persistJsonSafely('invoice_uploaded_document', invoicePreviewPayload);
-							persistJsonSafely('invoice_latest_result', {
-								invoiceId: result?.id ?? null,
-								documentId,
-								fields,
-								rawResult: rawForStorage,
-								selectedType: 'invoice',
-								savedAt: new Date().toISOString(),
-							});
-							setLastExtractionType('invoice');
-						}
-
-						const batchSnapshot = {
-							type: 'invoice',
-							result: {
-								invoiceId: result?.id ?? null,
-								documentId,
-								fields,
-								rawResult: rawForStorage,
-								selectedType: 'invoice',
-								savedAt: new Date().toISOString(),
-							},
-							preview: source,
-						};
-						if (isBatch) {
-							persistBatchItemSnapshot(index, batchSnapshot);
-						}
-
-						batchRows.push({
-							id: `invoice-${result?.id ?? index}`,
-							batchIndex: index,
-							fileName: fileForOcr.name,
-							type: 'Facture',
-							status: 'Succes',
-							detailPath: result?.id != null ? `/invoices/${result.id}` : '/invoice-ocr-result',
-							documentId,
-						});
-					} else {
-						const result = await extractOcrDocument(fileForOcr);
-						const documentId = buildDocumentId(result);
-						const fields = mapBackendResultToFields(result);
-
-						if (result?.id != null && result?.storage_local !== true) {
-							setErrorMessage(
-								'Extraction réussie, mais le fichier DUM n\'a pas été enregistré sur le serveur. ' +
-									'L\'aperçu depuis l\'historique ne s\'affichera pas : réimportez ce document après redémarrage de back_EMP (port 8000).'
-							);
-						}
-
-						if (!isBatch && index === 0) {
-							clearPreviousOcrDraft();
-							clearPreviousInvoiceDraft();
-							persistDocumentPreview({
-								...source,
-								documentId: result?.id ?? null,
-							});
-							const latestResult = {
-								documentId,
-								backendId: result?.id ?? null,
-								fields,
-								rawResult: buildStoredRawResult(result),
-								selectedType: 'declaration',
-								savedAt: new Date().toISOString(),
-								source: { ...source, documentId: result?.id ?? null },
-							};
-							persistJsonSafely('ocr_latest_result', latestResult);
-							setLastExtractionType('declaration');
-						}
-
-						const batchSnapshot = {
-							type: 'declaration',
-							result: {
-								documentId,
-								backendId: result?.id ?? null,
-								fields,
-								rawResult: buildStoredRawResult(result),
-								selectedType: 'declaration',
-								savedAt: new Date().toISOString(),
-							},
-							preview: source,
-						};
-						if (isBatch) {
-							persistBatchItemSnapshot(index, batchSnapshot);
-						}
-
-						batchRows.push({
-							id: `dum-${result?.id ?? index}`,
-							batchIndex: index,
-							fileName: fileForOcr.name,
-							type: 'DUM',
-							status: 'Succes',
-							detailPath: result?.id != null ? `/documents/${result.id}` : '/ocr-result',
-							documentId,
-						});
-					}
-				} catch (fileError) {
-					batchRows.push({
-						id: `error-${index}`,
-						batchIndex: index,
-						fileName: fileForOcr.name,
-						type: uploadDocumentType === 'invoice' ? 'Facture' : 'DUM',
-						status: 'Erreur',
-						error: getUploadErrorMessage(fileError, uploadDocumentType === 'invoice'),
-					});
-				}
-			}
-
-			setUploadProgress(100);
-			setUploadStatus('completed');
-
-			// 1 seul document : redirection auto vers la page Resultats (DUM ou facture)
-			if (isSingleUpload && batchRows[0]?.status === 'Erreur') {
-				setUploadStatus('error');
-				setErrorMessage(batchRows[0].error || "L'extraction a echoue.");
-				return;
-			}
-
-			if (isSingleUpload && batchRows[0]?.status === 'Succes') {
-				const successRow = batchRows[0];
-				const isInvoiceRow = successRow.type === 'Facture';
-				let resultsPath = isInvoiceRow ? '/invoice-ocr-result' : '/ocr-result';
-				const idFromPath = Number(String(successRow.detailPath || '').split('/').pop());
-				if (Number.isFinite(idFromPath) && idFromPath > 0) {
-					resultsPath = isInvoiceRow
-						? `/invoice-ocr-result?invoiceId=${idFromPath}`
-						: `/ocr-result?documentId=${idFromPath}`;
-				}
-				setUploadDetail(
-					isInvoiceRow
-						? 'Extraction terminee. Ouverture de Resultats facture…'
-						: 'Extraction terminee. Ouverture de Resultats DUM…'
-				);
-				window.setTimeout(() => {
-					const returnKind = consumeCrossVerifyImportReturn();
-					const cvSession = getCrossVerificationSession();
-					if (isInvoiceRow) {
-						if (returnKind === 'invoice' && cvSession?.sourceType && Number.isFinite(idFromPath)) {
-							updateCrossVerificationSession({
-								pendingPartnerId: idFromPath,
-								partnerType: 'invoice',
-							});
-							navigate('/cross-verification', { replace: true });
-							return;
-						}
-						navigate(resultsPath, { replace: true });
-						return;
-					}
-					if (returnKind === 'dum' && cvSession?.sourceType && Number.isFinite(idFromPath)) {
-						updateCrossVerificationSession({ pendingPartnerId: idFromPath, partnerType: 'dum' });
-						navigate('/cross-verification', { replace: true });
-						return;
-					}
-					navigate(resultsPath, { replace: true });
-				}, 400);
-				return;
-			}
-
-			setUploadDetail(`Lot termine: ${batchRows.filter((r) => r.status === 'Succes').length}/${batchRows.length} succes`);
-			persistJsonSafely('ocr_batch_results', {
-				selectedType: uploadDocumentType,
-				createdAt: new Date().toISOString(),
-				rows: batchRows,
-			});
-			navigate('/batch-results', { replace: true });
-		} catch (error) {
-			setUploadStatus('error');
-			setUploadProgress(0);
-			setUploadDetail('');
-			setErrorMessage(getUploadErrorMessage(error, uploadDocumentType === 'invoice'));
-		}
+		extraction.startExtraction({
+			files: selectedFiles,
+			croppedFilesByKey,
+			uploadDocumentType,
+			returnToCrossVerify,
+		});
 	};
 
-	const isUploading = uploadStatus === 'uploading';
-	const statusLabelMap = {
-		idle: 'En attente de document',
-		ready: 'Pret a envoyer',
-		uploading: 'Envoi en cours',
-		completed: 'Document traite',
-		error: 'Erreur de traitement',
-	};
+	// Extraction globale en cours : afficher la vue de progression, même en revenant sur la page.
+	if (extraction.status === 'running') {
+		return <ExtractionRunningView extraction={extraction} />;
+	}
 
 	const isInvoiceType = selectedType === 'invoice';
 	const isSingleFile = selectedFiles.length === 1;
+	const displayError = errorMessage || (extraction.status === 'error' ? extraction.error : '');
+	const formStatus = selectedFiles.length ? 'ready' : 'idle';
 	const resultsLabel = isInvoiceType ? 'Resultats facture' : 'Resultats DUM';
+	const statusLabelMap = {
+		idle: 'En attente de document',
+		ready: 'Pret a envoyer',
+	};
 	const statusDetailMap = {
 		idle: 'Ajoutez un fichier pour demarrer le flux OCR.',
 		ready: isSingleFile
 			? `1 document pret — apres extraction, redirection automatique vers ${resultsLabel}.`
 			: `${selectedFiles.length} documents — apres extraction, page Resultats de lot.`,
-		uploading: isSingleFile
-			? isInvoiceType
-				? 'Extraction en cours — redirection automatique vers Resultats facture.'
-				: 'Extraction en cours — redirection automatique vers Resultats DUM.'
-			: 'Extraction du lot en cours — puis page Resultats de lot.',
-		completed: isSingleFile
-			? `Document traite. Ouverture de ${resultsLabel}…`
-			: 'Lot traite. Ouverture de la page Resultats de lot.',
-		error: 'Une erreur est survenue pendant l\'extraction.',
 	};
 
 	const workflowSteps = [
 		{ label: 'Choix du type de document', state: selectedType ? 'done' : 'pending' },
 		{ label: 'Ajout du fichier source', state: selectedFiles.length ? 'done' : 'pending' },
-		{
-			label: 'Transmission vers OCR',
-			state:
-				uploadStatus === 'uploading'
-					? 'active'
-					: uploadStatus === 'completed'
-						? 'done'
-						: 'pending',
-		},
-		{ label: 'Extraction et verification', state: uploadStatus === 'completed' ? 'done' : 'pending' },
+		{ label: 'Transmission vers OCR', state: 'pending' },
+		{ label: 'Extraction et verification', state: 'pending' },
 	];
 
-	const visualProgress =
-		uploadStatus === 'ready'
-			? 18
-			: uploadStatus === 'idle'
-				? 0
-				: uploadStatus === 'completed'
-					? 100
-					: uploadProgress;
+	const visualProgress = formStatus === 'ready' ? 18 : 0;
 
 	return (
 		<div className="import-page-container modern-import">
@@ -638,7 +376,7 @@ function ImportPage() {
 							</>
 						)}
 					</p>
-					<DropZone onFileDrop={handleFileDrop} disabled={isUploading} multiple />
+					<DropZone onFileDrop={handleFileDrop} disabled={false} multiple />
 					{selectedFiles.length > 0 ? (
 						<p className="import-type-hint">
 							{selectedFiles.length === 1 ? (
@@ -682,30 +420,27 @@ function ImportPage() {
 							imageUrl={activeCropImageUrl}
 							sourceFile={activeCropFile}
 							fileLabel={activeCropFile.name}
-							disabled={isUploading}
+							disabled={false}
 							onCropApplied={handleCropApplied}
 						/>
 					) : null}
-					<UploadProgress progress={uploadProgress} status={uploadStatus} detail={uploadDetail} />
 
 					<button
 						type="button"
 						className="auth-button import-submit"
 						onClick={startUpload}
-						disabled={!selectedFiles.length || isUploading}
+						disabled={!selectedFiles.length}
 					>
 						<Upload size={18} />
-						{isUploading
-							? 'Extraction en cours…'
-							: selectedFiles.length > 1
-								? `Lancer l'extraction (${selectedFiles.length} fichiers)`
-								: "Lancer l'extraction"}
+						{selectedFiles.length > 1
+							? `Lancer l'extraction (${selectedFiles.length} fichiers)`
+							: "Lancer l'extraction"}
 					</button>
 
-					{errorMessage && (
+					{displayError && (
 						<p className="profile-message is-error" style={{ marginTop: '0.8rem' }}>
 							<AlertTriangle size={16} style={{ marginRight: '0.4rem', verticalAlign: 'text-bottom' }} />
-							{errorMessage}
+							{displayError}
 						</p>
 					)}
 
@@ -721,8 +456,8 @@ function ImportPage() {
 					<section className="import-side-card">
 						<p className="import-side-kicker">Suivi instantane</p>
 						<h3>Etat du traitement</h3>
-						<p className={`import-side-status ${uploadStatus}`}>{statusLabelMap[uploadStatus]}</p>
-						<p className="import-side-detail">{statusDetailMap[uploadStatus]}</p>
+						<p className={`import-side-status ${formStatus}`}>{statusLabelMap[formStatus]}</p>
+						<p className="import-side-detail">{statusDetailMap[formStatus]}</p>
 						<div className="import-side-meter">
 							<span style={{ width: `${visualProgress}%` }} />
 						</div>

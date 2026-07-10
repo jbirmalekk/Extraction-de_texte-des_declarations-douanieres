@@ -1,7 +1,7 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { LogOut, ShieldCheck, User as UserIcon } from 'lucide-react';
-import empLogo from '../../assets/emp.png';
-import { useAuth } from '../../hooks/useAuth';
+import empLogo from '@/assets/emp.png';
+import { useAuth } from '@/shared/hooks/useAuth';
 
 const publicLinks = [
 	{ type: 'route', to: '/', label: 'Accueil' },

@@ -1,7 +1,7 @@
 """OCR preprocessing stage."""
 
 from app.config import settings
-from app.services.preprocessing import preprocess, deskew, enhance_scan
+from app.services.vision.preprocessing import preprocess, deskew, enhance_scan
 
 
 def enhance_page(img):

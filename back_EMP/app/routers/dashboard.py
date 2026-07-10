@@ -2,7 +2,8 @@ from collections import defaultdict
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, extract
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.database import get_db
 from app.models.document import Document, ValidationSession
@@ -91,21 +92,80 @@ def _build_month_window(reference: datetime | None = None) -> list[datetime]:
     return month_window
 
 
-def _build_monthly_indicators(documents: list[Document], now: datetime) -> list[dict[str, object]]:
+def _documents_base_query(db: Session, current_user: User | None = None):
+    query = db.query(Document)
+    if current_user and current_user.role != "admin":
+        query = query.filter(Document.uploaded_by_user_id == current_user.id)
+    return query
+
+
+def _compute_document_stats(db: Session, current_user: User | None = None) -> dict[str, int]:
+    """Compteurs SQL sans charger tous les documents."""
+    now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1)
+    base = _documents_base_query(db, current_user)
+
+    documents_processed = base.count()
+    pending_validation = base.filter(Document.statut.in_(("pending", "processing", "done"))).count()
+    ready_for_erp = base.filter(Document.statut == "validated").count()
+
+    vs_q = (
+        db.query(func.count(ValidationSession.id))
+        .join(Document, ValidationSession.document_id == Document.id)
+        .filter(ValidationSession.status == "validated")
+        .filter(ValidationSession.ended_at >= month_start)
+    )
+    if current_user and current_user.role != "admin":
+        vs_q = vs_q.filter(Document.uploaded_by_user_id == current_user.id)
+    validated_this_month = vs_q.scalar() or 0
+
+    return {
+        "documents_processed": documents_processed,
+        "validated_this_month": validated_this_month,
+        "pending_validation": pending_validation,
+        "ready_for_erp": ready_for_erp,
+    }
+
+
+def _build_monthly_indicators_sql(db: Session, current_user: User | None, now: datetime) -> list[dict[str, object]]:
+    """Indicateurs mensuels via GROUP BY (6 derniers mois)."""
     month_window = _build_month_window(now)
+    keys = {_month_key(m) for m in month_window}
     monthly_map = defaultdict(lambda: {"documents_processed": 0, "validated": 0})
 
-    for document in documents:
-        created_at = document.created_at or now
-        created_key = _month_key(created_at)
-        if created_key:
-            monthly_map[created_key]["documents_processed"] += 1
+    created_q = (
+        db.query(
+            extract("year", Document.created_at).label("y"),
+            extract("month", Document.created_at).label("m"),
+            func.count(Document.id),
+        )
+        .filter(Document.created_at.isnot(None))
+        .group_by(extract("year", Document.created_at), extract("month", Document.created_at))
+    )
+    if current_user and current_user.role != "admin":
+        created_q = created_q.filter(Document.uploaded_by_user_id == current_user.id)
+    for y, m, cnt in created_q.all():
+        key = f"{int(y):04d}-{int(m):02d}"
+        if key in keys:
+            monthly_map[key]["documents_processed"] = int(cnt)
 
-        latest_session = _get_latest_validation_session(document)
-        if latest_session and latest_session.status == "validated":
-            validated_key = _month_key(latest_session.ended_at or latest_session.started_at)
-            if validated_key:
-                monthly_map[validated_key]["validated"] += 1
+    validated_q = (
+        db.query(
+            extract("year", ValidationSession.ended_at).label("y"),
+            extract("month", ValidationSession.ended_at).label("m"),
+            func.count(ValidationSession.id),
+        )
+        .join(Document, ValidationSession.document_id == Document.id)
+        .filter(ValidationSession.status == "validated")
+        .filter(ValidationSession.ended_at.isnot(None))
+        .group_by(extract("year", ValidationSession.ended_at), extract("month", ValidationSession.ended_at))
+    )
+    if current_user and current_user.role != "admin":
+        validated_q = validated_q.filter(Document.uploaded_by_user_id == current_user.id)
+    for y, m, cnt in validated_q.all():
+        key = f"{int(y):04d}-{int(m):02d}"
+        if key in keys:
+            monthly_map[key]["validated"] = int(cnt)
 
     return [
         {
@@ -118,45 +178,40 @@ def _build_monthly_indicators(documents: list[Document], now: datetime) -> list[
     ]
 
 
+def _load_recent_documents(db: Session, current_user: User | None, *, limit: int = 5) -> list[Document]:
+    """Activité récente : N documents seulement, sans corrections."""
+    q = (
+        _documents_base_query(db, current_user)
+        .options(
+            selectinload(Document.validation_sessions),
+            joinedload(Document.uploaded_by),
+        )
+        .order_by(Document.created_at.desc(), Document.id.desc())
+        .limit(max(1, min(limit, 20)))
+    )
+    return q.all()
+
+
+def _document_to_activity_row(document: Document, now: datetime, *, include_owner: bool = False) -> dict:
+    created_at = document.created_at or now
+    status_label, tone = _format_activity_status(document)
+    row = {
+        "document_id": document.id,
+        "document": document.numero_declaration or document.fichier or f"Document #{document.id}",
+        "date": created_at.strftime("%Y-%m-%d"),
+        "status": status_label,
+        "tone": tone,
+    }
+    if include_owner:
+        row["owner"] = document.uploaded_by.username if document.uploaded_by else None
+    return row
+
+
 def _build_user_dashboard_payload(current_user: User, db: Session):
     now = datetime.utcnow()
-    documents = (
-        db.query(Document)
-        .options(joinedload(Document.validation_sessions))
-        .filter(Document.uploaded_by_user_id == current_user.id)
-        .order_by(Document.created_at.desc(), Document.id.desc())
-        .all()
-    )
-
-    documents_processed = len(documents)
-    validated_this_month = 0
-    pending_validation = 0
-    ready_for_erp = 0
-
-    recent_activity = []
-    for document in documents:
-        created_at = document.created_at or now
-        latest_session = _get_latest_validation_session(document)
-
-        if latest_session and latest_session.status == "validated" and _same_month(latest_session.ended_at, now):
-            validated_this_month += 1
-
-        if document.statut == "validated":
-            ready_for_erp += 1
-
-        if document.statut in {"pending", "processing", "done"}:
-            pending_validation += 1
-
-        status_label, tone = _format_activity_status(document)
-        recent_activity.append(
-            {
-                "document_id": document.id,
-                "document": document.numero_declaration or document.fichier or f"Document #{document.id}",
-                "date": created_at.strftime("%Y-%m-%d"),
-                "status": status_label,
-                "tone": tone,
-            }
-        )
+    stats = _compute_document_stats(db, current_user)
+    recent_docs = _load_recent_documents(db, current_user, limit=5)
+    recent_activity = [_document_to_activity_row(doc, now) for doc in recent_docs]
 
     return {
         "user": {
@@ -164,75 +219,34 @@ def _build_user_dashboard_payload(current_user: User, db: Session):
             "username": current_user.username,
             "role": current_user.role,
         },
-        "stats": {
-            "documents_processed": documents_processed,
-            "validated_this_month": validated_this_month,
-            "pending_validation": pending_validation,
-            "ready_for_erp": ready_for_erp,
-        },
-        "monthly_indicators": _build_monthly_indicators(documents, now),
-        "recent_activity": recent_activity[:5],
+        "stats": stats,
+        "monthly_indicators": _build_monthly_indicators_sql(db, current_user, now),
+        "recent_activity": recent_activity,
     }
 
 
 def _build_admin_dashboard_payload(db: Session):
     now = datetime.utcnow()
-    documents = (
-        db.query(Document)
-        .options(joinedload(Document.validation_sessions), joinedload(Document.uploaded_by))
-        .order_by(Document.created_at.desc(), Document.id.desc())
-        .all()
-    )
-    users = db.query(User).all()
+    stats = _compute_document_stats(db, None)
+    user_stats = {
+        "total_users": db.query(func.count(User.id)).scalar() or 0,
+        "active_users": db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0,
+        "approved_users": db.query(func.count(User.id)).filter(User.is_approved == True).scalar() or 0,
+        "admin_users": db.query(func.count(User.id)).filter(User.role == "admin").scalar() or 0,
+    }
+    stats.update(user_stats)
 
-    documents_processed = len(documents)
-    pending_validation = 0
-    ready_for_erp = 0
-    validated_this_month = 0
-
-    recent_activity = []
-    for document in documents:
-        created_at = document.created_at or now
-        latest_session = _get_latest_validation_session(document)
-
-        if latest_session and latest_session.status == "validated" and _same_month(latest_session.ended_at, now):
-            validated_this_month += 1
-
-        if document.statut == "validated":
-            ready_for_erp += 1
-
-        if document.statut in {"pending", "processing", "done"}:
-            pending_validation += 1
-
-        status_label, tone = _format_activity_status(document)
-        recent_activity.append(
-            {
-                "document_id": document.id,
-                "document": document.numero_declaration or document.fichier or f"Document #{document.id}",
-                "date": created_at.strftime("%Y-%m-%d"),
-                "status": status_label,
-                "tone": tone,
-                "owner": document.uploaded_by.username if document.uploaded_by else None,
-            }
-        )
+    recent_docs = _load_recent_documents(db, None, limit=5)
+    recent_activity = [_document_to_activity_row(doc, now, include_owner=True) for doc in recent_docs]
 
     return {
-        "stats": {
-            "documents_processed": documents_processed,
-            "validated_this_month": validated_this_month,
-            "pending_validation": pending_validation,
-            "ready_for_erp": ready_for_erp,
-            "total_users": len(users),
-            "active_users": sum(1 for user in users if user.is_active),
-            "approved_users": sum(1 for user in users if user.is_approved),
-            "admin_users": sum(1 for user in users if user.role == "admin"),
-        },
-        "monthly_indicators": _build_monthly_indicators(documents, now),
-        "recent_activity": recent_activity[:5],
+        "stats": stats,
+        "monthly_indicators": _build_monthly_indicators_sql(db, None, now),
+        "recent_activity": recent_activity,
         "users": {
-            "total": len(users),
-            "active": sum(1 for user in users if user.is_active),
-            "approved": sum(1 for user in users if user.is_approved),
+            "total": user_stats["total_users"],
+            "active": user_stats["active_users"],
+            "approved": user_stats["approved_users"],
         },
     }
 
@@ -242,7 +256,6 @@ def _build_history_payload(documents: list[Document], now: datetime):
     for document in documents:
         latest_session = _get_latest_validation_session(document)
         status_label, tone = _format_activity_status(document)
-        corrections_count = sum(len(session.corrections or []) for session in document.validation_sessions or [])
         history_rows.append(
             {
                 "document_id": document.id,
@@ -258,7 +271,6 @@ def _build_history_payload(documents: list[Document], now: datetime):
                 "score": document.score_confiance,
                 "validated_at": latest_session.ended_at.isoformat() if latest_session and latest_session.ended_at else None,
                 "validator": latest_session.validator.username if latest_session and latest_session.validator else None,
-                "corrections_count": corrections_count,
             }
         )
 
@@ -274,10 +286,7 @@ def _build_history_payload(documents: list[Document], now: datetime):
 
 
 def _history_documents_query(db: Session, current_user: User | None = None):
-    query = db.query(Document)
-    if current_user and current_user.role != "admin":
-        query = query.filter(Document.uploaded_by_user_id == current_user.id)
-    return query
+    return _documents_base_query(db, current_user)
 
 
 def _load_documents_with_history(
@@ -292,8 +301,7 @@ def _load_documents_with_history(
     query = (
         base.options(
             joinedload(Document.uploaded_by),
-            joinedload(Document.validation_sessions).joinedload(ValidationSession.validator),
-            joinedload(Document.validation_sessions).joinedload(ValidationSession.corrections),
+            selectinload(Document.validation_sessions).selectinload(ValidationSession.validator),
         )
         .order_by(Document.created_at.desc(), Document.id.desc())
     )

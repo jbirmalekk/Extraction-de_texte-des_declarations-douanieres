@@ -39,8 +39,6 @@ def extract_header_cell_fields(img, *, fast_mode: bool = False, ocr_scale: float
         roi, box = _crop_ratio(img, zone.ratio)
         if roi is None or roi.size == 0:
             continue
-        if settings.OCR_DEBUG_ZONES:
-            save_zone_crop(img, zone.name, box, tag="header_cell")
 
         details = recognize_detailed(
             roi,
@@ -53,11 +51,24 @@ def extract_header_cell_fields(img, *, fast_mode: bool = False, ocr_scale: float
                 "adresse_exportateur",
                 "importateur_nom",
                 "code_importateur",
+                "adresse_importateur",
                 "declarant_nom",
                 "pays_destination_finale",
             },
         )
         text = (details.get("text") or "").strip()
+
+        if settings.OCR_DEBUG_ZONES:
+            save_zone_crop(
+                img,
+                zone.name,
+                box,
+                tag="header_cell",
+                ocr_text=text,
+                confidence=float(details.get("confidence") or 0.0),
+                engine=str(details.get("engine") or ""),
+            )
+
         if not text:
             continue
         cleaned = _post_clean(zone.name, text)

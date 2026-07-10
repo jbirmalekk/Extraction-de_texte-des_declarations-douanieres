@@ -1,4 +1,4 @@
-import { buildComparisonRows, formatMoney, getMontantAlignmentSummary } from './compareDisplay';
+import { buildComparisonRows, formatMoney, getMontantAlignmentSummary } from '@/shared/utils/compareDisplay';
 
 const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 

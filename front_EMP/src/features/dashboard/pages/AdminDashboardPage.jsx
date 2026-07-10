@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle, Clock, Database, FileText, ShieldCheck, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { fetchUnifiedHistoryBatch } from '../services/historyService';
-import { fetchAdminDashboard } from '../services/ocrService';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { fetchUnifiedHistoryBatch } from '@/shared/services/historyService';
+import { fetchAdminDashboard } from '@/shared/services/ocrService';
 
 const DEFAULT_STATS = [
   { key: 'documents_processed', label: 'Documents traités', icon: FileText, color: '#2563eb' },

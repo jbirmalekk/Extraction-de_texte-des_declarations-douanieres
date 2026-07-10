@@ -21,13 +21,15 @@ class FieldZone:
 
 
 # Micro-zones bandeau « Informations générales » (partie 6 — OCR par cellule).
+# Recalibré 2026-07 : zones exportateur remontées, importateur recentré (évite répertoire/déclarant).
 HEADER_CELL_ZONES: tuple[FieldZone, ...] = (
-    FieldZone("exportateur_nom", 0.070, 0.095, 0.148, 0.438, 6),
-    FieldZone("adresse_exportateur", 0.091, 0.105, 0.148, 0.438, 7),
-    FieldZone("exportateur_code", 0.106, 0.117, 0.428, 0.508, 7),
-    FieldZone("code_importateur", 0.120, 0.138, 0.148, 0.228, 7),
-    FieldZone("importateur_nom", 0.120, 0.148, 0.228, 0.405, 6),
-    FieldZone("importateur_pays_cell", 0.120, 0.148, 0.405, 0.498, 6),
+    FieldZone("exportateur_nom", 0.055, 0.078, 0.148, 0.438, 6),
+    FieldZone("adresse_exportateur", 0.075, 0.092, 0.148, 0.438, 7),
+    FieldZone("exportateur_code", 0.093, 0.108, 0.428, 0.508, 7),
+    FieldZone("code_importateur", 0.108, 0.128, 0.148, 0.238, 7),
+    FieldZone("importateur_nom", 0.108, 0.132, 0.248, 0.388, 6),
+    FieldZone("importateur_pays_cell", 0.108, 0.132, 0.388, 0.498, 6),
+    FieldZone("adresse_importateur", 0.132, 0.152, 0.148, 0.498, 6),
     FieldZone("adresse_entreposage", 0.108, 0.134, 0.528, 0.858, 6),
     FieldZone("declarant_code", 0.152, 0.164, 0.218, 0.312, 7),
     FieldZone("declarant_nom", 0.168, 0.196, 0.148, 0.488, 7),
@@ -39,19 +41,19 @@ HEADER_CELL_ZONES: tuple[FieldZone, ...] = (
 
 FIELD_ZONES: tuple[FieldZone, ...] = (
     # DUM TTN : colonne gauche x≈0.14–0.50 ; pays encadrés 15–18 souvent y≈0.155–0.22 et x>0.54.
-    FieldZone("exportateur_area", 0.048, 0.102, 0.138, 0.438, 6, isolated=False),
+    FieldZone("exportateur_area", 0.042, 0.095, 0.138, 0.438, 6, isolated=False),
     # Raison sociale — case 2 uniquement (exclut n° déclaration / importateur).
-    FieldZone("exportateur_nom", 0.070, 0.095, 0.148, 0.438, 6),
-    FieldZone("adresse_exportateur", 0.091, 0.108, 0.148, 0.438, 7),
+    FieldZone("exportateur_nom", 0.055, 0.078, 0.148, 0.438, 6),
+    FieldZone("adresse_exportateur", 0.075, 0.092, 0.148, 0.438, 7),
     FieldZone("numero_declaration", 0.050, 0.078, 0.512, 0.615, 7),
     FieldZone("date_declaration", 0.050, 0.078, 0.618, 0.720, 7),
     FieldZone("type_declaration", 0.096, 0.120, 0.730, 0.766, 7),
     FieldZone("nbre_articles", 0.096, 0.120, 0.783, 0.828, 7),
     FieldZone("nombre_colis", 0.099, 0.118, 0.874, 0.902, 7),
-    FieldZone("exportateur_code", 0.107, 0.116, 0.420, 0.512, 7),
-    FieldZone("code_importateur", 0.120, 0.138, 0.148, 0.228, 7),
-    FieldZone("importateur_nom", 0.120, 0.148, 0.228, 0.405, 6),
-    FieldZone("adresse_importateur", 0.146, 0.168, 0.148, 0.498, 6, isolated=False),
+    FieldZone("exportateur_code", 0.093, 0.108, 0.420, 0.512, 7),
+    FieldZone("code_importateur", 0.108, 0.128, 0.148, 0.238, 7),
+    FieldZone("importateur_nom", 0.108, 0.132, 0.248, 0.388, 6),
+    FieldZone("adresse_importateur", 0.130, 0.152, 0.148, 0.498, 6, isolated=False),
     FieldZone("adresse_entreposage", 0.108, 0.134, 0.528, 0.858, 6, isolated=False),
     FieldZone("declarant_code", 0.152, 0.164, 0.218, 0.318, 7),
     FieldZone("num_repertoire", 0.150, 0.164, 0.322, 0.448, 7),

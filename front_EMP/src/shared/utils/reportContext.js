@@ -1,12 +1,12 @@
-import { fetchInvoiceById } from '../services/invoiceApi';
-import { fetchDocumentDetail } from '../services/ocrService';
-import { buildComparisonRows, getMontantAlignmentSummary } from './compareDisplay';
+import { fetchInvoiceById } from '@/shared/services/invoiceApi';
+import { fetchDocumentDetail } from '@/shared/services/ocrService';
+import { buildComparisonRows, getMontantAlignmentSummary } from '@/shared/utils/compareDisplay';
 import {
 	buildDumDisplayLine,
 	buildInvoiceDisplayLine,
 	buildReconciliationPairRef,
 	buildReportDocEntries,
-} from './crossVerifyDisplay';
+} from '@/shared/utils/crossVerifyDisplay';
 
 const parseConfidenceMap = (raw) => {
 	if (!raw || typeof raw !== 'object') {

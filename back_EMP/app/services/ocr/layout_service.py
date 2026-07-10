@@ -1,6 +1,6 @@
 """OCR layout stage: semantic zones/table layout helpers."""
 
-from app.services.zones import (
+from app.services.vision.zones import (
     detect_zones_semantiques,
     get_zone_box,
     detect_table,

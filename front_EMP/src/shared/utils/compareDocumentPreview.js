@@ -1,6 +1,6 @@
-import { fetchDumSourcePreview, fetchInvoiceSourcePreview } from '../services/documentPreviewApi';
-import { readSessionDocumentPreview } from './documentPreviewCache';
-import { getCrossVerificationSession } from './crossVerificationSession';
+import { fetchDumSourcePreview, fetchInvoiceSourcePreview } from '@/shared/services/documentPreviewApi';
+import { readSessionDocumentPreview } from '@/shared/utils/documentPreviewCache';
+import { getCrossVerificationSession } from '@/shared/utils/crossVerificationSession';
 
 const safeParse = (key) => {
 	try {

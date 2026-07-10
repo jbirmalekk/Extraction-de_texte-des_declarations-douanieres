@@ -8,27 +8,27 @@ import {
 	ShieldCheck,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import ErpExportButton from '../components/Erp/ErpExportButton';
-import DetailSummaryHeader from '../components/Detail/DetailSummaryHeader';
-import DetailDocumentPreview from '../components/Detail/DetailDocumentPreview';
-import { ERP_EXPORT } from '../utils/erpExport';
-import DetailFieldsPanel from '../components/Detail/DetailFieldsPanel';
-import { fetchInvoiceByDumId } from '../services/invoiceApi';
-import { fetchDocumentCorrections, fetchDocumentDetail } from '../services/ocrService';
+import ErpExportButton from '@/features/erp/components/ErpExportButton';
+import DetailSummaryHeader from '@/features/detail/components/DetailSummaryHeader';
+import DetailDocumentPreview from '@/features/detail/components/DetailDocumentPreview';
+import { ERP_EXPORT } from '@/shared/utils/erpExport';
+import DetailFieldsPanel from '@/features/detail/components/DetailFieldsPanel';
+import { fetchInvoiceByDumId } from '@/shared/services/invoiceApi';
+import { fetchDocumentCorrections, fetchDocumentDetail } from '@/shared/services/ocrService';
 import {
 	buildDumDetailSections,
 	formatControleTone,
 	formatDumStatut,
-} from '../utils/detailDisplay';
-import { beginReconciliationSession } from '../utils/crossVerificationSession';
-import { hydrateDumContextFromApi } from '../utils/documentContextStorage';
+} from '@/shared/utils/detailDisplay';
+import { beginReconciliationSession } from '@/shared/utils/crossVerificationSession';
+import { hydrateDumContextFromApi } from '@/shared/utils/documentContextStorage';
 import {
 	canShowReconciliation,
 	isDumValidated,
 	isInvoiceValidated,
 	isReconciliationControlOk,
 	isReconciliationNeedsRedo,
-} from '../utils/workflowActions';
+} from '@/shared/utils/workflowActions';
 
 function DocumentDetailPage() {
 	const { documentId } = useParams();

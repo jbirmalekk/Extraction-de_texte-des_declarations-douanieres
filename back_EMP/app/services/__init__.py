@@ -30,7 +30,7 @@ def __getattr__(name):
         return process_document
 
     if name in {"load_image", "preprocess", "deskew"}:
-        from . import preprocessing
+        from .vision import preprocessing
         return getattr(preprocessing, name)
 
     if name in {
@@ -40,27 +40,27 @@ def __getattr__(name):
         "detect_zones_semantiques",
         "get_zone_box",
     }:
-        from . import zones
+        from .vision import zones
         return getattr(zones, name)
 
     if name in {"ocr_zone_img", "clean_text"}:
-        from . import ocr_engine
+        from .vision import ocr_engine
         return getattr(ocr_engine, name)
 
     if name in {"parse_fields", "valider_champs"}:
-        from . import parser_v2
+        from .parsing import parser_v2
         return getattr(parser_v2, name)
 
     if name == "parse_document_text":
-        from .parser_service import parse_document_text
+        from .parsing.parser_service import parse_document_text
         return parse_document_text
 
     if name == "build_field_confidences":
-        from .field_extractors import build_field_confidences
+        from .parsing.field_extractors import build_field_confidences
         return build_field_confidences
 
     if name == "apply_semantic_normalization":
-        from .semantic_parser import apply_semantic_normalization
+        from .parsing.semantic_parser import apply_semantic_normalization
         return apply_semantic_normalization
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

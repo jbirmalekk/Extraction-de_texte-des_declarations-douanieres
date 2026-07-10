@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import empLogo from '../../assets/emp.png';
-import { confirmPasswordReset } from '../../services/authService';
-import { validatePasswordPolicy } from '../../utils/passwordPolicy';
+import empLogo from '@/assets/emp.png';
+import { confirmPasswordReset } from '@/shared/services/authService';
+import { validatePasswordPolicy } from '@/shared/utils/passwordPolicy';
 
 function ResetPasswordPage() {
 	const [searchParams] = useSearchParams();

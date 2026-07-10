@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, PencilLine, Trash2, UserRound, Check, X, Clock, Users } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '@/shared/hooks/useAuth';
 import {
 	deleteUserByAdmin,
 	getUserByAdmin,
@@ -9,7 +9,7 @@ import {
 	getPendingUsers,
 	approveUser,
 	rejectUser,
-} from '../services/userService';
+} from '@/shared/services/userService';
 
 function AdminUsersPage() {
 	const { user: currentUser } = useAuth();

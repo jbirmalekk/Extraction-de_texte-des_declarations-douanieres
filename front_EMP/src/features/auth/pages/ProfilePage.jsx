@@ -7,10 +7,10 @@ import {
 	Shield,
 	UserRound,
 } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
-import { fetchMyDashboard } from '../services/ocrService';
-import { changeMyPassword, updateMyProfile } from '../services/userService';
-import { validatePasswordPolicy } from '../utils/passwordPolicy';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { fetchMyDashboard } from '@/shared/services/ocrService';
+import { changeMyPassword, updateMyProfile } from '@/shared/services/userService';
+import { validatePasswordPolicy } from '@/shared/utils/passwordPolicy';
 
 const DEPARTMENT_OPTIONS = [
 	{ value: 'logistics', label: 'Logistique & Opérations' },

@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import empLogo from '../../assets/emp.png';
-import LoginForm from '../../components/Auth/LoginForm';
+import empLogo from '@/assets/emp.png';
+import LoginForm from '@/features/auth/components/LoginForm';
 
 function LoginPage() {
 	const navigate = useNavigate();

@@ -11,18 +11,18 @@ import {
 	XCircle,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import ErpExportButton from '../components/Erp/ErpExportButton';
-import { useAuth } from '../hooks/useAuth';
-import { ERP_EXPORT } from '../utils/erpExport';
-import { formatMoney } from '../utils/compareDisplay';
-import { loadReportContext } from '../utils/reportContext';
-import DossierSummaryStrip from '../components/ui/DossierSummaryStrip';
-import PageHeader from '../components/ui/PageHeader';
-import StatusBadge from '../components/ui/StatusBadge';
-import WorkflowTimeline from '../components/ui/WorkflowTimeline';
-import { isReportConforme } from '../utils/workflowActions';
-import { getWorkflowProgressForValidation } from '../utils/workflowProgress';
-import { exportComparisonReportPdf } from '../utils/reconciliationReportPdf';
+import ErpExportButton from '@/features/erp/components/ErpExportButton';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { ERP_EXPORT } from '@/shared/utils/erpExport';
+import { formatMoney } from '@/shared/utils/compareDisplay';
+import { loadReportContext } from '@/shared/utils/reportContext';
+import DossierSummaryStrip from '@/shared/components/ui/DossierSummaryStrip';
+import PageHeader from '@/shared/components/ui/PageHeader';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
+import WorkflowTimeline from '@/shared/components/ui/WorkflowTimeline';
+import { isReportConforme } from '@/shared/utils/workflowActions';
+import { getWorkflowProgressForValidation } from '@/shared/utils/workflowProgress';
+import { exportComparisonReportPdf } from '@/shared/utils/reconciliationReportPdf';
 import './ReportDetailPage.css';
 
 function ReportDetailPage() {

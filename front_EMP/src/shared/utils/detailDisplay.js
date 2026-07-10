@@ -1,5 +1,5 @@
-import { mapBackendResultToFields } from './ocrFields';
-import { mapInvoiceBackendToFields } from './invoiceFields';
+import { mapBackendResultToFields } from '@/shared/utils/ocrFields';
+import { mapInvoiceBackendToFields } from '@/shared/utils/invoiceFields';
 
 const hasValue = (value) => value != null && String(value).trim() !== '';
 

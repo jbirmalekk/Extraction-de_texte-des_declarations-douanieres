@@ -64,6 +64,27 @@ def _box_from_anchor(img, anchor, dx1, dy1, dx2, dy2):
     )
 
 
+def _box_below_label(img, anchor, *, x_left_frac, x_right_frac, from_line, to_line):
+    """Zone de valeur SOUS un libellé (layout TTN : la valeur est sous l'intitulé).
+
+    Robuste aux variations de détection du libellé :
+    - x : centré sur le libellé, étendu d'une fraction de la largeur de page.
+    - y : part du BAS du libellé (anchor.y + anchor.h) puis se décale en
+      multiples d'une hauteur de ligne relative à la page (0.016*H). Cela
+      neutralise les différences de hauteur détectée entre libellés
+      (ex. importateur souvent sous-détecté vs exportateur).
+    """
+    h_img, w_img = img.shape[:2]
+    cx = anchor["x"] + anchor["w"] * 0.5
+    line = 0.016 * h_img
+    y_start = anchor["y"] + anchor["h"]
+    x1 = cx - x_left_frac * w_img
+    x2 = cx + x_right_frac * w_img
+    y1 = y_start + from_line * line
+    y2 = y_start + to_line * line
+    return (x1, y1, x2, y2)
+
+
 def _draw_debug_box(img, box, color=(0, 0, 255), thickness=2):
     """Draw debug rectangle with safe integer coordinates."""
     if img is None or not box or len(box) != 4:
@@ -88,8 +109,11 @@ def extract_dynamic_fields(img, *, fast_mode=False, ocr_scale=2.0):
 
     # Lot 1: critical fields (exporter, importer, declarant, colis + strict dynamic)
     if "exportateur" in anchors:
-        # Valeur à droite du libellé ; dx2 modéré pour ne pas empiéter sur la colonne importateur.
-        box = _box_from_anchor(img, anchors["exportateur"], 1.5, -0.5, 5.8, 2.6)
+        # Layout TTN : la valeur (raison sociale) est SOUS le libellé, pas à droite.
+        box = _box_below_label(
+            img, anchors["exportateur"],
+            x_left_frac=0.14, x_right_frac=0.17, from_line=-0.1, to_line=1.15,
+        )
         if settings.OCR_DEBUG_ZONES:
             _draw_debug_box(img, box, color=(0, 165, 255))
         ocr_res = _ocr_with_retry(img, box, psm=6, scale=scale)
@@ -99,15 +123,21 @@ def extract_dynamic_fields(img, *, fast_mode=False, ocr_scale=2.0):
         if val:
             fields["exportateur_nom"] = val
             metrics["dynamic_fields"].append("exportateur_nom")
-        addr_box = _box_from_anchor(img, anchors["exportateur"], 1.4, 2.0, 5.6, 3.6)
+        addr_box = _box_below_label(
+            img, anchors["exportateur"],
+            x_left_frac=0.14, x_right_frac=0.17, from_line=1.0, to_line=2.2,
+        )
         if settings.OCR_DEBUG_ZONES:
             _draw_debug_box(img, addr_box, color=(0, 200, 100))
-        addr_res = _ocr_with_retry(img, addr_box, psm=7, scale=scale)
-        if addr_res["text"] and re.search(r"\bJAWDET\b", addr_res["text"], re.IGNORECASE):
+        addr_res = _ocr_with_retry(img, addr_box, psm=6, scale=scale)
+        if addr_res["text"]:
             fields["adresse_exportateur"] = addr_res["text"]
             metrics["dynamic_fields"].append("adresse_exportateur")
     if "importateur" in anchors:
-        box = _box_from_anchor(img, anchors["importateur"], 1.5, -0.4, 5.2, 2.5)
+        box = _box_below_label(
+            img, anchors["importateur"],
+            x_left_frac=0.14, x_right_frac=0.17, from_line=-0.1, to_line=1.15,
+        )
         if settings.OCR_DEBUG_ZONES:
             _draw_debug_box(img, box)
         ocr_res = _ocr_with_retry(img, box, psm=6, scale=scale)
@@ -117,6 +147,14 @@ def extract_dynamic_fields(img, *, fast_mode=False, ocr_scale=2.0):
         if val:
             fields["importateur_nom"] = val
             metrics["dynamic_fields"].append("importateur_nom")
+        addr_box = _box_below_label(
+            img, anchors["importateur"],
+            x_left_frac=0.14, x_right_frac=0.17, from_line=1.0, to_line=2.2,
+        )
+        addr_res = _ocr_with_retry(img, addr_box, psm=6, scale=scale)
+        if addr_res["text"]:
+            fields["adresse_importateur"] = addr_res["text"]
+            metrics["dynamic_fields"].append("adresse_importateur")
         code_box = _box_from_anchor(img, anchors["importateur"], -0.15, -0.25, 1.6, 1.1)
         code_res = _ocr_with_retry(img, code_box, psm=7, scale=scale)
         m_cl = re.search(r"\b(CL\s*\d{1,4})\b", code_res.get("text") or "", re.IGNORECASE)
@@ -124,7 +162,10 @@ def extract_dynamic_fields(img, *, fast_mode=False, ocr_scale=2.0):
             fields["code_importateur"] = re.sub(r"\s+", "", m_cl.group(1)).upper()
             metrics["dynamic_fields"].append("code_importateur")
     if "declarant" in anchors:
-        box = _box_from_anchor(img, anchors["declarant"], -0.65, 0.85, 7.5, 3.9)
+        box = _box_below_label(
+            img, anchors["declarant"],
+            x_left_frac=0.14, x_right_frac=0.18, from_line=-0.1, to_line=1.6,
+        )
         if settings.OCR_DEBUG_ZONES:
             _draw_debug_box(img, box)
         ocr_res = _ocr_with_retry(img, box, psm=6, scale=scale)

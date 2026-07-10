@@ -1,4 +1,4 @@
-import { postErpMigration, postErpValidationData } from '../services/erpApi';
+import { postErpMigration, postErpValidationData } from '@/shared/services/erpApi';
 
 export const ERP_EXPORT = {
 	DUM: 'dum',

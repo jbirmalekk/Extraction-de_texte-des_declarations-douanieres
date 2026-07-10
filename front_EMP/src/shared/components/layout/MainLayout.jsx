@@ -1,7 +1,8 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
-import Navbar from './Navbar';
-import SideNav from './SideNav';
+import { useAuth } from '@/shared/hooks/useAuth';
+import Navbar from '@/shared/components/layout/Navbar';
+import SideNav from '@/shared/components/layout/SideNav';
+import { ExtractionJobsProvider } from '@/shared/store/ExtractionJobsContext';
 
 function MainLayout() {
 	const { isAuthenticated } = useAuth();
@@ -29,12 +30,14 @@ function MainLayout() {
 		isAuthenticated && appPaths.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
 
 	return (
-		<div className={`main-layout ${showSideNav ? 'with-sidebar' : ''}`}>
-			{showSideNav ? <SideNav /> : <Navbar />}
-			<main className={`main-content ${showSideNav ? 'with-sidebar' : ''}`}>
-				<Outlet />
-			</main>
-		</div>
+		<ExtractionJobsProvider>
+			<div className={`main-layout ${showSideNav ? 'with-sidebar' : ''}`}>
+				{showSideNav ? <SideNav /> : <Navbar />}
+				<main className={`main-content ${showSideNav ? 'with-sidebar' : ''}`}>
+					<Outlet />
+				</main>
+			</div>
+		</ExtractionJobsProvider>
 	);
 }
 

@@ -4,7 +4,7 @@ import {
 	ERP_EXPORT,
 	getErpSuccessMessage,
 	getErpSuccessTitle,
-} from '../utils/erpExport';
+} from '@/shared/utils/erpExport';
 import './ErpSuccessPage.css';
 
 function ErpSuccessPage() {

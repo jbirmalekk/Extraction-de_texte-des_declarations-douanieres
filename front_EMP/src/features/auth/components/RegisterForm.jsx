@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
-import { signup } from '../../services/authService';
-import { validatePasswordPolicy } from '../../utils/passwordPolicy';
+import { signup } from '@/shared/services/authService';
+import { validatePasswordPolicy } from '@/shared/utils/passwordPolicy';
 
 function RegisterForm({ onSuccess }) {
 	const [fullName, setFullName] = useState('');

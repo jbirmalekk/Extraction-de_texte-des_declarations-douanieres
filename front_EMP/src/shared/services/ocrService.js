@@ -1,4 +1,4 @@
-import apiClient from './api';
+import apiClient from '@/shared/services/api';
 
 const buildClientPcName = () => {
 	if (typeof window === 'undefined') {

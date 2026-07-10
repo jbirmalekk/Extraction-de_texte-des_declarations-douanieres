@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Eye, GitCompare, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import DocRefCell from '../components/ui/DocRefCell';
-import EmptyState from '../components/ui/EmptyState';
-import PageHeader from '../components/ui/PageHeader';
-import StatCard from '../components/ui/StatCard';
-import StatusBadge from '../components/ui/StatusBadge';
-import { useAuth } from '../hooks/useAuth';
-import { fetchInvoicesList } from '../services/invoiceApi';
-import { buildCompactDocParts } from '../utils/crossVerifyDisplay';
-import { formatHistoryDateTime } from '../utils/historyUnified';
-import { computeReportsStats } from '../utils/workflowProgress';
+import DocRefCell from '@/shared/components/ui/DocRefCell';
+import EmptyState from '@/shared/components/ui/EmptyState';
+import PageHeader from '@/shared/components/ui/PageHeader';
+import StatCard from '@/shared/components/ui/StatCard';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
+import { fetchReportsSummary } from '@/shared/services/reportsApi';
+import { buildCompactDocParts } from '@/shared/utils/crossVerifyDisplay';
+import { formatHistoryDateTime } from '@/shared/utils/historyUnified';
+import { computeReportsStats } from '@/shared/utils/workflowProgress';
 import './ReportsPage.css';
 
 const controleLabel = (sc) => {
@@ -27,7 +26,6 @@ const controleLabel = (sc) => {
 };
 
 function ReportsPage() {
-	const { user } = useAuth();
 	const [items, setItems] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
@@ -36,17 +34,14 @@ function ReportsPage() {
 		setLoading(true);
 		setError('');
 		try {
-			const page = await fetchInvoicesList({ limit: 200 }, user);
-			const compared = (page.items || []).filter(
-				(inv) => inv.compared_at || inv.statut_controle
-			);
-			setItems(compared);
+			const page = await fetchReportsSummary({ limit: 30 });
+			setItems(page.items || []);
 		} catch {
-			setError('Impossible de charger les rapports (vérifiez back_EMP_Fact sur le port 8001).');
+			setError('Impossible de charger les rapports. Vérifiez que back_EMP est démarré.');
 		} finally {
 			setLoading(false);
 		}
-	}, [user]);
+	}, []);
 
 	useEffect(() => {
 		loadReports();

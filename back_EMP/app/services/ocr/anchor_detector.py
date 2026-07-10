@@ -8,7 +8,7 @@ from difflib import SequenceMatcher
 
 import cv2
 
-from app.services import ocr_engine as _ocr_engine
+from app.services.vision import ocr_engine as _ocr_engine
 
 
 def _normalize_token(value: str) -> str:
@@ -30,8 +30,9 @@ def _best_anchor_score(token: str, patterns: tuple[str, ...]) -> float:
 
 
 ANCHOR_PATTERNS = {
-    "exportateur": ("EXPORTATEUR", "EXPORTATEU", "EXPORT"),
-    "importateur": ("IMPORTATEUR", "IMPORTAT", "LMPORTATEUR"),
+    # "XPORTAT" / "MPORTAT" discriminent E(x)portateur vs I(m)portateur (1 lettre d'écart sinon).
+    "exportateur": ("EXPORTATEUR", "XPORTAT", "EXPORTATEU"),
+    "importateur": ("IMPORTATEUR", "MPORTAT", "LMPORTATEUR"),
     "declarant": ("DECLARANT", "DECLAR", "DCLARANT"),
     "colis": ("COLIS", "NBRECOLIS", "NOMBRECOLIS"),
     "provenance": ("PROVENANCE",),
@@ -46,12 +47,32 @@ ANCHOR_PATTERNS = {
 }
 
 
+def _preprocess_for_anchors(img):
+    """Agrandit + normalise le contraste pour rendre les libellés lisibles.
+
+    Sur scans faibles/surexposés, l'OCR des ancres échoue sans ce prétraitement.
+    Retourne (image_traitée, facteur_d_echelle) ; les coordonnées OCR devront
+    être divisées par le facteur pour revenir dans l'espace de l'image d'entrée.
+    """
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    h, w = gray.shape[:2]
+    # Vise ~2600px de large pour l'OCR des libellés, avec un minimum d'agrandissement.
+    factor = 2600.0 / float(max(1, w))
+    factor = max(1.9, min(3.0, factor))
+    if abs(factor - 1.0) > 1e-3:
+        gray = cv2.resize(gray, None, fx=factor, fy=factor, interpolation=cv2.INTER_CUBIC)
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+    proc = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    return proc, factor
+
+
 def detect_anchors(img) -> dict[str, dict]:
     if img is None or (hasattr(img, "size") and img.size == 0):
         return {}
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    proc = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    proc, factor = _preprocess_for_anchors(img)
+    inv = 1.0 / factor
     data = _ocr_engine.pytesseract.image_to_data(
         proc,
         config="--psm 6 -l fra+eng",
@@ -76,19 +97,29 @@ def detect_anchors(img) -> dict[str, dict]:
             next_token = _normalize_token(data["text"][i + 1] or "")
         combined = f"{token}{next_token}" if next_token else token
 
+        # Un mot n'est affecté qu'à SA MEILLEURE ancre (évite qu'EXPORTATEUR
+        # revendique aussi IMPORTATEUR par similarité).
+        best_name = None
+        best_score = 0.0
         for name, patterns in ANCHOR_PATTERNS.items():
             score = max(_best_anchor_score(token, patterns), _best_anchor_score(combined, patterns))
-            if score >= 0.74:
-                weighted_conf = round((conf / 100.0) * 0.6 + score * 0.4, 4)
-                if name in anchors and anchors[name]["score"] >= weighted_conf:
-                    continue
-                anchors[name] = {
-                    "x": int(data["left"][i]),
-                    "y": int(data["top"][i]),
-                    "w": int(data["width"][i]),
-                    "h": int(data["height"][i]),
-                    "token": token,
-                    "conf": conf,
-                    "score": weighted_conf,
-                }
+            if score > best_score:
+                best_score = score
+                best_name = name
+        if best_name is None or best_score < 0.74:
+            continue
+
+        weighted_conf = round((conf / 100.0) * 0.6 + best_score * 0.4, 4)
+        if best_name in anchors and anchors[best_name]["score"] >= weighted_conf:
+            continue
+        # Remise à l'échelle vers l'espace de l'image d'entrée.
+        anchors[best_name] = {
+            "x": int(round(int(data["left"][i]) * inv)),
+            "y": int(round(int(data["top"][i]) * inv)),
+            "w": int(round(int(data["width"][i]) * inv)),
+            "h": int(round(int(data["height"][i]) * inv)),
+            "token": token,
+            "conf": conf,
+            "score": weighted_conf,
+        }
     return anchors

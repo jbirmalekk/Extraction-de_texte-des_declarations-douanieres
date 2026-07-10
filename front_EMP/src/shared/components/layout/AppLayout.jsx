@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LogOut, ShieldCheck, User as UserIcon } from 'lucide-react';
-import empLogo from '../../assets/emp.png';
-import { useAuth } from '../../hooks/useAuth';
+import empLogo from '@/assets/emp.png';
+import { useAuth } from '@/shared/hooks/useAuth';
 
 function AppLayout() {
 	const { user, logout } = useAuth();

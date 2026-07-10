@@ -6,12 +6,12 @@ import re
 from typing import Any
 
 from app.config import settings
-from app.services.field_extractors import (
+from app.services.parsing.field_extractors import (
     business_validates_ocr,
     composite_ocr_score,
     get_field_ocr_profile,
 )
-from app.services.ocr_engine import ocr_zone_img, clean_text
+from app.services.vision.ocr_engine import ocr_zone_img, clean_text
 from .common_normalizer import normalize_ocr_text
 
 try:

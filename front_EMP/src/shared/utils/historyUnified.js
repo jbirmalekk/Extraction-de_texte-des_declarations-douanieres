@@ -31,7 +31,7 @@ const trimOrNull = (value) => {
 	return s || null;
 };
 
-import { isDumValidated, isInvoiceValidated } from './workflowActions';
+import { isDumValidated, isInvoiceValidated } from '@/shared/utils/workflowActions';
 
 const dumStatusFilterKey = (statusLabel) => {
 	if (statusLabel === 'Validé') {

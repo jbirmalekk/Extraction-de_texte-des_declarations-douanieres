@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import settings
-from app.services.image_quality import assess_image_quality
-from app.services.preprocessing import load_image
+from app.services.quality.image_quality import assess_image_quality
+from app.services.vision.preprocessing import load_image
 
 
 def _estimate_dpi(width_px: int, height_px: int) -> float:

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
-import { healthCheck } from '../../services/api';
-import { useAuth } from '../../hooks/useAuth';
+import { healthCheck } from '@/shared/services/api';
+import { useAuth } from '@/shared/hooks/useAuth';
 
 function LoginForm({ onSuccess }) {
 	const { login } = useAuth();

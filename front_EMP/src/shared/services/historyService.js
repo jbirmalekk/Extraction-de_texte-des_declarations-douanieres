@@ -1,10 +1,10 @@
-import { bulkDeleteInvoices } from './invoiceApi';
-import { bulkDeleteDocuments } from './ocrService';
-import { removeSessionDocumentPreview } from '../utils/documentPreviewCache';
-import { fetchUnifiedHistoryApi } from './unifiedHistoryApi';
-import { splitUnifiedHistoryResponse } from '../utils/historyUnified';
+import { bulkDeleteInvoices } from '@/shared/services/invoiceApi';
+import { bulkDeleteDocuments } from '@/shared/services/ocrService';
+import { removeSessionDocumentPreview } from '@/shared/utils/documentPreviewCache';
+import { fetchUnifiedHistoryApi } from '@/shared/services/unifiedHistoryApi';
+import { splitUnifiedHistoryResponse } from '@/shared/utils/historyUnified';
 
-export const HISTORY_BATCH_SIZE = 50;
+export const HISTORY_BATCH_SIZE = 30;
 export const HISTORY_MAX_RECORDS = 500;
 
 /**

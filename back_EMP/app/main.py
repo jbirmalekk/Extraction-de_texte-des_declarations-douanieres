@@ -23,6 +23,7 @@ from app.models.user import User, RevokedToken
 
 from .routers.dashboard import router as dashboard_router
 from .routers.unified_history import router as unified_history_router
+from .routers.reports_summary import router as reports_summary_router
 from .routers.invoice_proxy import router as invoice_proxy_router
 from .routers.erp_export import router as erp_export_router
 from app.routers.ocr import router as ocr_router
@@ -78,6 +79,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(dashboard_router)
 app.include_router(unified_history_router)
+app.include_router(reports_summary_router)
 app.include_router(invoice_proxy_router)
 app.include_router(erp_export_router)
 app.include_router(ocr_router)

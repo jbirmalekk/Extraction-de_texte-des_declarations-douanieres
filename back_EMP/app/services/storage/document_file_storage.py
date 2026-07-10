@@ -8,7 +8,7 @@ from pathlib import Path
 from app.config import settings
 
 LOCAL_DOSSIER_PREFIX = "local://dum/"
-_APP_ROOT = Path(__file__).resolve().parents[2]
+_APP_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _storage_root() -> Path:

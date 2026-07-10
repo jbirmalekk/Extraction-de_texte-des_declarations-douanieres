@@ -7,6 +7,7 @@ import {
 	ClipboardList,
 	History,
 	Home,
+	Layers,
 	LayoutDashboard,
 	LogOut,
 	Menu,
@@ -15,12 +16,13 @@ import {
 	User as UserIcon,
 	X,
 } from 'lucide-react';
-import empLogo from '../../assets/emp.png';
-import { useAuth } from '../../hooks/useAuth';
+import empLogo from '@/assets/emp.png';
+import { useAuth } from '@/shared/hooks/useAuth';
 
 const appLinks = [
 	{ to: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
 	{ to: '/import', label: 'Import', icon: FileUp },
+	{ to: '/batch-results', label: 'Documents extraits', icon: Layers },
 	{ to: '/ocr-result', label: 'Resultats DUM', icon: FileText },
 	{ to: '/invoice-ocr-result', label: 'Resultats facture', icon: Receipt },
 	{

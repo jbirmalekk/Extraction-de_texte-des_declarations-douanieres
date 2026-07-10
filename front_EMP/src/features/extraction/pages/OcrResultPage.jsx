@@ -10,14 +10,14 @@ import {
 	ZoomOut,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { isInvoiceExtractionPayload, looksLikeInvoiceFileName } from '../utils/extractionRouting';
-import { DEFAULT_DOCUMENT_ID } from '../utils/ocrFields';
+import { isInvoiceExtractionPayload, looksLikeInvoiceFileName } from '@/shared/utils/extractionRouting';
+import { DEFAULT_DOCUMENT_ID } from '@/shared/utils/ocrFields';
 import {
 	hydrateDumContextFromApi,
 	saveDumValidationPayload,
 	syncDumLatestFromValidationPayload,
-} from '../utils/documentContextStorage';
-import { useDocumentFilePreview } from '../hooks/useDocumentFilePreview';
+} from '@/shared/utils/documentContextStorage';
+import { useDocumentFilePreview } from '@/shared/hooks/useDocumentFilePreview';
 import './OcrResultPage.css';
 
 

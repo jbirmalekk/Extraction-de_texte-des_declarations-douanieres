@@ -9,17 +9,17 @@ import {
 	ZoomOut,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { isDumExtractionPayload } from '../utils/extractionRouting';
+import { isDumExtractionPayload } from '@/shared/utils/extractionRouting';
 import {
 	DEFAULT_INVOICE_BADGE,
 	mapInvoiceBackendToFields,
-} from '../utils/invoiceFields';
+} from '@/shared/utils/invoiceFields';
 import {
 	hydrateInvoiceContextFromApi,
 	saveInvoiceValidationPayload,
 	syncInvoiceLatestFromValidationPayload,
-} from '../utils/documentContextStorage';
-import { useDocumentFilePreview } from '../hooks/useDocumentFilePreview';
+} from '@/shared/utils/documentContextStorage';
+import { useDocumentFilePreview } from '@/shared/hooks/useDocumentFilePreview';
 import './OcrResultPage.css';
 
 const HIDDEN_SECTIONS = new Set(['Metadonnees', 'Qualite OCR', 'Listes']);

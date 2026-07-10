@@ -10,34 +10,34 @@ import {
 	ZoomOut,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import ErpExportButton from '../components/Erp/ErpExportButton';
-import ValidationContextStrip from '../components/ui/ValidationContextStrip';
-import WorkflowBreadcrumb from '../components/Workflow/WorkflowBreadcrumb';
-import { ERP_EXPORT } from '../utils/erpExport';
-import { getWorkflowProgressForValidation } from '../utils/workflowProgress';
-import { isInvoiceValidated, RECONCILIATION_BLOCKED_MSG } from '../utils/workflowActions';
-import { fieldNeedsCorrection } from '../utils/validationFieldFilters';
+import ErpExportButton from '@/features/erp/components/ErpExportButton';
+import ValidationContextStrip from '@/shared/components/ui/ValidationContextStrip';
+import WorkflowBreadcrumb from '@/shared/components/workflow/WorkflowBreadcrumb';
+import { ERP_EXPORT } from '@/shared/utils/erpExport';
+import { getWorkflowProgressForValidation } from '@/shared/utils/workflowProgress';
+import { isInvoiceValidated, RECONCILIATION_BLOCKED_MSG } from '@/shared/utils/workflowActions';
+import { fieldNeedsCorrection } from '@/shared/utils/validationFieldFilters';
 import {
 	createInvoiceFromUpload,
 	fetchInvoiceById,
 	fetchInvoicesList,
 	patchInvoice,
-} from '../services/invoiceApi';
-import { useValidationDraft } from '../hooks/useValidationDraft';
-import { buildInvoicePatchFromFields } from '../utils/invoiceFields';
-import { fileFromStoredInvoiceDocument } from '../utils/invoiceDocumentBlob';
-import { resolveInvoiceIdFromStorage } from '../utils/resolveInvoiceId';
-import { snapshotPreview } from '../utils/compareDocumentPreview';
-import { saveCrossVerificationSession } from '../utils/crossVerificationSession';
-import { buildGroupedFilteredFields } from '../utils/validationFieldFilters';
+} from '@/shared/services/invoiceApi';
+import { useValidationDraft } from '@/features/validation/hooks/useValidationDraft';
+import { buildInvoicePatchFromFields } from '@/shared/utils/invoiceFields';
+import { fileFromStoredInvoiceDocument } from '@/shared/utils/invoiceDocumentBlob';
+import { resolveInvoiceIdFromStorage } from '@/shared/utils/resolveInvoiceId';
+import { snapshotPreview } from '@/shared/utils/compareDocumentPreview';
+import { saveCrossVerificationSession } from '@/shared/utils/crossVerificationSession';
+import { buildGroupedFilteredFields } from '@/shared/utils/validationFieldFilters';
 import {
 	hydrateInvoiceContextFromApi,
 	syncInvoiceLatestFromValidationPayload,
-} from '../utils/documentContextStorage';
-import { useDocumentFilePreview } from '../hooks/useDocumentFilePreview';
-import { useAuth } from '../hooks/useAuth';
+} from '@/shared/utils/documentContextStorage';
+import { useDocumentFilePreview } from '@/shared/hooks/useDocumentFilePreview';
+import { useAuth } from '@/shared/hooks/useAuth';
 import './ValidationPage.css';
-import '../components/Workflow/WorkflowBreadcrumb.css';
+import '@/shared/components/workflow/WorkflowBreadcrumb.css';
 
 const NON_EDITABLE_SECTIONS = new Set(['Controle DUM', 'Metadonnees', 'Qualite OCR', 'Listes']);
 

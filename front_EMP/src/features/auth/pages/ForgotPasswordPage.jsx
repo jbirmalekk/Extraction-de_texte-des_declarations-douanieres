@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import empLogo from '../../assets/emp.png';
-import { requestPasswordReset } from '../../services/authService';
+import empLogo from '@/assets/emp.png';
+import { requestPasswordReset } from '@/shared/services/authService';
 
 function ForgotPasswordPage() {
 	const [email, setEmail] = useState('');

@@ -1,4 +1,4 @@
-import apiClient from './api';
+import apiClient from '@/shared/services/api';
 
 /**
  * Historique unifié (back_EMP) — DUM et factures si INVOICE_API_URL configurée.

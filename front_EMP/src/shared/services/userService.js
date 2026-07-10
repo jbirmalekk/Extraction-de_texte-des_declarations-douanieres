@@ -1,4 +1,4 @@
-import apiClient from './api';
+import apiClient from '@/shared/services/api';
 
 export const updateMyProfile = async ({ username, email }) => {
 	const payload = {};

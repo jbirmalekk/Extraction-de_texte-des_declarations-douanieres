@@ -1,5 +1,5 @@
 import axios from 'axios';
-import apiClient from './api';
+import apiClient from '@/shared/services/api';
 
 /** Serveur S2 — migration ERP (exemple : localhost:8002). */
 export const ERP_API_BASE_URL =

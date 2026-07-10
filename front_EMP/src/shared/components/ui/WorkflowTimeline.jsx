@@ -1,4 +1,4 @@
-import { WORKFLOW_STEPS } from '../../utils/workflowProgress';
+import { WORKFLOW_STEPS } from '@/shared/utils/workflowProgress';
 import './ui.css';
 
 function WorkflowTimeline({ steps, title = 'Parcours document', compact = false }) {

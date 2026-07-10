@@ -1,5 +1,5 @@
-import DocTypeBadge from './DocTypeBadge';
-import StatusBadge from './StatusBadge';
+import DocTypeBadge from '@/shared/components/ui/DocTypeBadge';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
 import './ui.css';
 
 /** Colonne réconciliation : état + partenaire (n° + date DUM ou facture). */

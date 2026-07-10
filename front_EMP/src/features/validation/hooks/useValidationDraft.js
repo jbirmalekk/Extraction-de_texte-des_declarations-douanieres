@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { prepareValidationPayloadForStorage } from '../utils/documentContextStorage';
+import { prepareValidationPayloadForStorage } from '@/shared/utils/documentContextStorage';
 
 const fieldsFingerprint = (fields = []) =>
 	fields

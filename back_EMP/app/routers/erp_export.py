@@ -20,7 +20,7 @@ from app.models.erp_export import ErpExport
 from app.models.user import User
 from app.routers.auth import get_current_user
 from app.routers.invoice_proxy import _internal_key
-from app.services.erp_payload import build_erp_validation_payload, payload_to_json
+from app.services.erp.erp_payload import build_erp_validation_payload, payload_to_json
 
 router = APIRouter(tags=["ERP — export S1"])
 

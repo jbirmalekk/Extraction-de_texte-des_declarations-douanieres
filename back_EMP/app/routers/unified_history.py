@@ -1,9 +1,10 @@
 """
-Historique unifié DUM (+ factures via API factures si configurée).
+Historique unifié DUM + factures (lecture SQL directe sur la même base).
 GET /api/history?type=dum|invoice|all&skip=0&limit=50
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 import requests
@@ -15,17 +16,21 @@ from app.database import get_db
 from app.models.user import User
 from app.routers.auth import get_current_user
 from app.routers.dashboard import _build_history_payload, _load_documents_with_history
+from app.services.invoice_list_service import list_invoice_history_items
+
+logger = logging.getLogger("app.unified_history")
 
 router = APIRouter(prefix="/api/history", tags=["Historique unifié"])
 
 
-def _invoice_list_from_service(
+def _invoice_list_from_http(
     *,
     skip: int,
     limit: int,
     user: User,
     authorization: str | None,
 ) -> dict:
+    """Repli HTTP vers back_EMP_Fact si la lecture SQL directe échoue."""
     base = (settings.INVOICE_API_URL or "").rstrip("/")
     if not base:
         return {"items": [], "total": 0, "skip": skip, "limit": limit, "source": "unavailable"}
@@ -47,7 +52,7 @@ def _invoice_list_from_service(
             url,
             params={"skip": skip, "limit": limit},
             headers=headers,
-            timeout=settings.INVOICE_API_TIMEOUT_SECONDS,
+            timeout=min(settings.INVOICE_API_TIMEOUT_SECONDS, 30),
         )
         resp.raise_for_status()
         data = resp.json()
@@ -55,14 +60,16 @@ def _invoice_list_from_service(
         if not isinstance(items, list):
             items = []
         total = data.get("total", len(items)) if isinstance(data, dict) else len(items)
+        mapped = [_map_invoice_history_item(i) for i in items]
         return {
-            "items": items,
+            "items": mapped,
             "total": total,
             "skip": data.get("skip", skip) if isinstance(data, dict) else skip,
             "limit": data.get("limit", limit) if isinstance(data, dict) else limit,
             "source": "invoice_api",
         }
     except requests.RequestException as exc:
+        logger.warning("invoice_http_fallback_failed err=%s", exc)
         return {
             "items": [],
             "total": 0,
@@ -96,11 +103,41 @@ def _map_invoice_history_item(inv: dict) -> dict:
     }
 
 
+def _invoice_list_for_history(
+    db: Session,
+    *,
+    skip: int,
+    limit: int,
+    user: User,
+    authorization: str | None,
+) -> dict:
+    try:
+        items, total = list_invoice_history_items(
+            db,
+            user_id=user.id,
+            role=user.role or "user",
+            skip=skip,
+            limit=limit,
+        )
+        return {
+            "items": items,
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+            "source": "sql_direct",
+        }
+    except Exception as exc:
+        logger.warning("invoice_sql_direct_failed err=%s — fallback HTTP", exc)
+        return _invoice_list_from_http(
+            skip=skip, limit=limit, user=user, authorization=authorization
+        )
+
+
 @router.get("")
 def get_unified_history(
     type: str = Query("all", description="dum | invoice | all"),
     skip: int = 0,
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(30, ge=1, le=200),
     authorization: str | None = Header(default=None, alias="Authorization"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -130,13 +167,14 @@ def get_unified_history(
         result["dum_stats"] = dum_payload.get("stats")
 
     if doc_type in ("invoice", "all"):
-        inv_page = _invoice_list_from_service(
+        inv_page = _invoice_list_for_history(
+            db,
             skip=skip,
             limit=limit,
             user=current_user,
             authorization=authorization,
         )
-        inv_items = [_map_invoice_history_item(i) for i in inv_page.get("items", [])]
+        inv_items = inv_page.get("items", [])
         if doc_type == "all":
             result["items"].extend(inv_items)
             result["invoice_total"] = inv_page.get("total", 0)

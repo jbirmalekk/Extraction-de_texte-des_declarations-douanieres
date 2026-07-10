@@ -12,49 +12,49 @@ import {
 	XCircle,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import WorkflowBreadcrumb from '../components/Workflow/WorkflowBreadcrumb';
-import { useAuth } from '../hooks/useAuth';
+import WorkflowBreadcrumb from '@/shared/components/workflow/WorkflowBreadcrumb';
+import { useAuth } from '@/shared/hooks/useAuth';
 import {
 	compareInvoiceWithDum,
 	fetchInvoiceById,
 	fetchInvoicesList,
 	linkInvoiceToDum,
-} from '../services/invoiceApi';
-import { fetchDocumentDetail, fetchOcrDocuments } from '../services/ocrService';
-import DocumentPreviewPanel from '../components/CrossVerify/DocumentPreviewPanel';
-import ErpExportButton from '../components/Erp/ErpExportButton';
-import { ERP_EXPORT } from '../utils/erpExport';
+} from '@/shared/services/invoiceApi';
+import { fetchDocumentDetail, fetchOcrDocuments } from '@/shared/services/ocrService';
+import DocumentPreviewPanel from '@/features/reconciliation/components/DocumentPreviewPanel';
+import ErpExportButton from '@/features/erp/components/ErpExportButton';
+import { ERP_EXPORT } from '@/shared/utils/erpExport';
 import {
 	buildComparisonRows,
 	formatMoney,
 	getMontantAlignmentSummary,
 	isMontantAligned,
-} from '../utils/compareDisplay';
-import { exportComparisonReportPdf } from '../utils/reconciliationReportPdf';
-import { countComparisonIssues } from '../utils/reportContext';
-import { buildReconciliationPairRef } from '../utils/crossVerifyDisplay';
-import { loadCrossVerifyPreviews } from '../utils/compareDocumentPreview';
+} from '@/shared/utils/compareDisplay';
+import { exportComparisonReportPdf } from '@/shared/utils/reconciliationReportPdf';
+import { countComparisonIssues } from '@/shared/utils/reportContext';
+import { buildReconciliationPairRef } from '@/shared/utils/crossVerifyDisplay';
+import { loadCrossVerifyPreviews } from '@/shared/utils/compareDocumentPreview';
 import {
 	buildLinkedDumSuffix,
 	buildLinkedInvoiceSuffix,
 	indexDumDocsById,
 	resolveSourceRegisteredLine,
-} from '../utils/crossVerifyDisplay';
+} from '@/shared/utils/crossVerifyDisplay';
 import {
 	clearCrossVerificationSession,
 	getCrossVerificationSession,
 	saveCrossVerificationSession,
 	updateCrossVerificationSession,
-} from '../utils/crossVerificationSession';
-import { buildInvoiceByDumMap } from '../utils/historyUnified';
+} from '@/shared/utils/crossVerificationSession';
+import { buildInvoiceByDumMap } from '@/shared/utils/historyUnified';
 import {
 	assertReconciliationPairReady,
 	isDumValidated,
 	isInvoiceValidated,
 	RECONCILIATION_BLOCKED_MSG,
-} from '../utils/workflowActions';
+} from '@/shared/utils/workflowActions';
 import './CrossVerificationPage.css';
-import '../components/Workflow/WorkflowBreadcrumb.css';
+import '@/shared/components/workflow/WorkflowBreadcrumb.css';
 
 function CrossVerificationPage() {
 	const navigate = useNavigate();

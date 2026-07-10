@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
-import empLogo from '../../assets/emp.png';
-import RegisterForm from '../../components/Auth/RegisterForm';
+import empLogo from '@/assets/emp.png';
+import RegisterForm from '@/features/auth/components/RegisterForm';
 
 function RegisterPage() {
 	const navigate = useNavigate();

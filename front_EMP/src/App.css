@@ -3824,6 +3824,7 @@
   width: 100%;
   padding: 0;
   background: transparent;
+  align-items: stretch;
 }
 
 .import-hero-modern {
@@ -4332,4 +4333,352 @@
     display: block;
     cursor: pointer;
   }
+}
+
+/* Extraction en cours : liste des tâches (jobs) + spinner */
+@keyframes emp-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: emp-spin 1s linear infinite;
+}
+
+.import-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.import-job-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.import-job-row.processing {
+  border-color: #a5f3fc;
+  background: #ecfeff;
+}
+
+.import-job-row.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.import-job-row.error {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.import-job-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #64748b;
+}
+
+.import-job-row.done .import-job-icon {
+  color: #16a34a;
+}
+
+.import-job-row.error .import-job-icon {
+  color: #dc2626;
+}
+
+.import-job-row.processing .import-job-icon {
+  color: #0891b2;
+}
+
+.import-job-name {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #1e293b;
+  word-break: break-all;
+}
+
+.import-job-status {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.import-job-status.done {
+  color: #16a34a;
+}
+
+.import-job-status.error {
+  color: #dc2626;
+}
+
+.import-job-status.processing {
+  color: #0891b2;
+}
+
+/* Page Résultats de lot (documents extraits) */
+.batch-toolbar {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 1.2rem 0 0.4rem;
+}
+
+.batch-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.batch-toolbar__btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.batch-toolbar__btn--primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.batch-toolbar__btn--primary:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.batch-table-wrap {
+  width: 100%;
+  margin-top: 1rem;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  overflow-x: auto;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.batch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.batch-table thead th {
+  text-align: left;
+  padding: 0.85rem 1rem;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.batch-table tbody td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #eef2f7;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.batch-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.batch-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.batch-table tbody tr.is-error {
+  background: #fef2f2;
+}
+
+.batch-table tbody tr.is-error:hover {
+  background: #fee2e2;
+}
+
+.batch-table__col-num {
+  width: 44px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.batch-table__col-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.batch-table__file {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 280px;
+}
+
+.batch-table__file span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-table__file-icon {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.batch-table__ref {
+  font-weight: 600;
+  color: #334155;
+}
+
+.batch-table__error {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 320px;
+  color: #b91c1c;
+  font-size: 0.84rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-table__actions {
+  display: flex;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.batch-card__type {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.batch-card__type.dum {
+  color: #1e40af;
+  background: #dbeafe;
+}
+
+.batch-card__type.invoice {
+  color: #7c2d12;
+  background: #ffedd5;
+}
+
+.batch-card__head .status-pill {
+  margin-left: auto;
+}
+
+.batch-card__name {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.batch-card__ref {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #475569;
+}
+
+.batch-card__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #b91c1c;
+  line-height: 1.4;
+}
+
+.batch-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 0.4rem;
+}
+
+.batch-card__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.batch-card__btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.batch-card__btn--primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.batch-card__btn--primary:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.batch-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 2.6rem 1.5rem;
+  margin-top: 1.2rem;
+  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+}
+
+.batch-empty__icon {
+  color: #94a3b8;
+  margin-bottom: 0.4rem;
+}
+
+.batch-empty h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.batch-empty p {
+  margin: 0 0 0.6rem;
+  max-width: 480px;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.5;
 }

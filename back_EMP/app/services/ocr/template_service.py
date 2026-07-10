@@ -1,6 +1,6 @@
 """Template extraction stage."""
 
-from app.services.template_extractor import extract_template_fields
+from app.services.parsing.template_extractor import extract_template_fields
 
 
 def extract_template(img, *, fast_mode=False, ocr_scale=2.0):

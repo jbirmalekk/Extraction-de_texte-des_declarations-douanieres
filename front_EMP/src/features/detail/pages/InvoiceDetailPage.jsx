@@ -7,28 +7,28 @@ import {
 	Receipt,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import ErpExportButton from '../components/Erp/ErpExportButton';
-import DetailSummaryHeader from '../components/Detail/DetailSummaryHeader';
-import DetailDocumentPreview from '../components/Detail/DetailDocumentPreview';
-import { useAuth } from '../hooks/useAuth';
-import { ERP_EXPORT } from '../utils/erpExport';
-import DetailFieldsPanel from '../components/Detail/DetailFieldsPanel';
-import { fetchInvoiceById } from '../services/invoiceApi';
-import { fetchDocumentDetail } from '../services/ocrService';
+import ErpExportButton from '@/features/erp/components/ErpExportButton';
+import DetailSummaryHeader from '@/features/detail/components/DetailSummaryHeader';
+import DetailDocumentPreview from '@/features/detail/components/DetailDocumentPreview';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { ERP_EXPORT } from '@/shared/utils/erpExport';
+import DetailFieldsPanel from '@/features/detail/components/DetailFieldsPanel';
+import { fetchInvoiceById } from '@/shared/services/invoiceApi';
+import { fetchDocumentDetail } from '@/shared/services/ocrService';
 import {
 	buildInvoiceDetailSections,
 	formatControleTone,
 	formatInvoiceStatut,
-} from '../utils/detailDisplay';
-import { beginReconciliationSession } from '../utils/crossVerificationSession';
-import { hydrateInvoiceContextFromApi } from '../utils/documentContextStorage';
+} from '@/shared/utils/detailDisplay';
+import { beginReconciliationSession } from '@/shared/utils/crossVerificationSession';
+import { hydrateInvoiceContextFromApi } from '@/shared/utils/documentContextStorage';
 import {
 	canShowReconciliation,
 	isDumValidated,
 	isInvoiceValidated,
 	isReconciliationControlOk,
 	isReconciliationNeedsRedo,
-} from '../utils/workflowActions';
+} from '@/shared/utils/workflowActions';
 
 function InvoiceDetailPage() {
 	const { invoiceId } = useParams();
