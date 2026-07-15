@@ -1,32 +1,40 @@
 
 import './App.css';
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import ProtectedRoute from '@/features/auth/components/ProtectedRoute';
 import MainLayout from '@/shared/components/layout/MainLayout';
-import WelcomePage from '@/features/home/pages/WelcomePage';
-import LoginPage from '@/features/auth/pages/LoginPage';
-import RegisterPage from '@/features/auth/pages/RegisterPage';
-import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage';
-import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage';
-import VerifyEmailPage from '@/features/auth/pages/VerifyEmailPage';
-import ImportPage from '@/features/import/pages/ImportPage';
-import NotFoundPage from '@/features/home/pages/NotFoundPage';
-import DashboardPage from '@/features/dashboard/pages/DashboardPage';
-import HistoryPage from '@/features/history/pages/HistoryPage';
-import ProfilePage from '@/features/auth/pages/ProfilePage';
-import AdminUsersPage from '@/features/admin/pages/AdminUsersPage';
-import AdminDashboardPage from '@/features/dashboard/pages/AdminDashboardPage';
-import DocumentDetailPage from '@/features/detail/pages/DocumentDetailPage';
-import InvoiceDetailPage from '@/features/detail/pages/InvoiceDetailPage';
-import OcrResultPage from '@/features/extraction/pages/OcrResultPage';
-import InvoiceOcrResultPage from '@/features/extraction/pages/InvoiceOcrResultPage';
-import BatchResultsPage from '@/features/extraction/pages/BatchResultsPage';
-import ValidationPage from '@/features/validation/pages/ValidationPage';
-import InvoiceValidationPage from '@/features/validation/pages/InvoiceValidationPage';
-import CrossVerificationPage from '@/features/reconciliation/pages/CrossVerificationPage';
-import ErpSuccessPage from '@/features/erp/pages/ErpSuccessPage';
-import ReportsPage from '@/features/reports/pages/ReportsPage';
-import ReportDetailPage from '@/features/reports/pages/ReportDetailPage';
+
+const WelcomePage = lazy(() => import('@/features/home/pages/WelcomePage'));
+const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'));
+const RegisterPage = lazy(() => import('@/features/auth/pages/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('@/features/auth/pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPasswordPage'));
+const VerifyEmailPage = lazy(() => import('@/features/auth/pages/VerifyEmailPage'));
+const ImportPage = lazy(() => import('@/features/import/pages/ImportPage'));
+const NotFoundPage = lazy(() => import('@/features/home/pages/NotFoundPage'));
+const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage'));
+const HistoryPage = lazy(() => import('@/features/history/pages/HistoryPage'));
+const ProfilePage = lazy(() => import('@/features/auth/pages/ProfilePage'));
+const AdminUsersPage = lazy(() => import('@/features/admin/pages/AdminUsersPage'));
+const AdminDashboardPage = lazy(() => import('@/features/dashboard/pages/AdminDashboardPage'));
+const DocumentDetailPage = lazy(() => import('@/features/detail/pages/DocumentDetailPage'));
+const InvoiceDetailPage = lazy(() => import('@/features/detail/pages/InvoiceDetailPage'));
+const OcrResultPage = lazy(() => import('@/features/extraction/pages/OcrResultPage'));
+const InvoiceOcrResultPage = lazy(() => import('@/features/extraction/pages/InvoiceOcrResultPage'));
+const BatchResultsPage = lazy(() => import('@/features/extraction/pages/BatchResultsPage'));
+const ValidationPage = lazy(() => import('@/features/validation/pages/ValidationPage'));
+const InvoiceValidationPage = lazy(() => import('@/features/validation/pages/InvoiceValidationPage'));
+const CrossVerificationPage = lazy(() => import('@/features/reconciliation/pages/CrossVerificationPage'));
+const ErpSuccessPage = lazy(() => import('@/features/erp/pages/ErpSuccessPage'));
+const ReportsPage = lazy(() => import('@/features/reports/pages/ReportsPage'));
+const ReportDetailPage = lazy(() => import('@/features/reports/pages/ReportDetailPage'));
+
+const RouteFallback = () => (
+  <div className="app-route-loading" role="status">
+    Chargement...
+  </div>
+);
 
 const router = createBrowserRouter([
   {
@@ -202,8 +210,11 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <Suspense fallback={<RouteFallback />}>
+      <RouterProvider router={router} />
+    </Suspense>
+  );
 }
 
 export default App;
-

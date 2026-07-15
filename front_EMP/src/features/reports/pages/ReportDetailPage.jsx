@@ -22,7 +22,6 @@ import StatusBadge from '@/shared/components/ui/StatusBadge';
 import WorkflowTimeline from '@/shared/components/ui/WorkflowTimeline';
 import { isReportConforme } from '@/shared/utils/workflowActions';
 import { getWorkflowProgressForValidation } from '@/shared/utils/workflowProgress';
-import { exportComparisonReportPdf } from '@/shared/utils/reconciliationReportPdf';
 import './ReportDetailPage.css';
 
 function ReportDetailPage() {
@@ -56,12 +55,15 @@ function ReportDetailPage() {
 		load();
 	}, [load]);
 
-	const handleExportPdf = () => {
+	const handleExportPdf = async () => {
 		if (!ctx) {
 			return;
 		}
 		setExporting(true);
 		try {
+			const { exportComparisonReportPdf } = await import(
+				'@/shared/utils/reconciliationReportPdf'
+			);
 			exportComparisonReportPdf({
 				comparison: ctx.invoice,
 				dumDetail: ctx.dum,
