@@ -1,6 +1,6 @@
 import unittest
 
-from app.services.parser_v2 import parse_fields, valider_champs
+from app.services.parsing.parser_v2 import parse_fields, valider_champs
 
 
 class ParserV2Tests(unittest.TestCase):

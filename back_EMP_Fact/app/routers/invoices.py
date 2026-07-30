@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, Response, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -261,7 +262,9 @@ async def extract_only(
     ):
         raise HTTPException(400, "Format accepté: PDF, PNG, JPG")
     raw = await file.read()
-    return extract_invoice_from_bytes(
+    # OCR facture = CPU long → threadpool pour ne pas bloquer l'event loop.
+    return await run_in_threadpool(
+        extract_invoice_from_bytes,
         raw,
         filename=file.filename or "document",
         content_type=file.content_type,
@@ -288,14 +291,18 @@ async def create_invoice_from_upload(
     username = current_user.username
 
     logger.info("invoice_upload_start file=%s bytes=%s", original_filename, len(raw))
-    extracted = extract_invoice_from_bytes(
+    # OCR facture = CPU long → threadpool pour ne pas bloquer l'event loop.
+    extracted = await run_in_threadpool(
+        extract_invoice_from_bytes,
         raw,
         filename=original_filename,
         content_type=file.content_type,
     )
     logger.info("invoice_extract_done file=%s warnings=%s", original_filename, len(extracted.extraction_warnings or []))
 
-    nextcloud_meta, storage_payload = _upload_to_ged(
+    # Upload GED = I/O réseau bloquant → threadpool.
+    nextcloud_meta, storage_payload = await run_in_threadpool(
+        _upload_to_ged,
         file_bytes=raw,
         filename=original_filename,
         content_type=file.content_type,

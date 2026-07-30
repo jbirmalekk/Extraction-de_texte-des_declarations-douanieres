@@ -1,6 +1,6 @@
 import unittest
 
-from app.services.template_extractor import _extract_direct_fields
+from app.services.parsing.template_extractor import _extract_direct_fields
 
 
 class TemplateExtractorRulesTests(unittest.TestCase):

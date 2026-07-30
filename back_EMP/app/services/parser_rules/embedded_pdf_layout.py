@@ -20,6 +20,21 @@ _CL_CODE_LINE_RE = re.compile(
 _AUTH_KEY_RE = re.compile(r"\b([A-Z]\d{3}[A-Z]{2,4}\d[A-Z])\b")
 _NDP_RE = re.compile(r"\b(\d{11})\b")
 
+_COUNTRY_LABELS = (
+    ("TN", "TUNISIE"),
+    ("US", "USA"),
+    ("FR", "FRANCE"),
+    ("DE", "ALLEMAGNE"),
+    ("IT", "ITALIE"),
+    ("ES", "ESPAGNE"),
+    ("BE", "BELGIQUE"),
+    ("CN", "CHINE"),
+    ("TR", "TURQUIE"),
+    ("NL", "PAYS BAS"),
+    ("GB", "ROYAUME UNI"),
+    ("PT", "PORTUGAL"),
+)
+
 
 def _norm_lines(text: str) -> list[str]:
     out: list[str] = []
@@ -57,6 +72,160 @@ def _collect_value_block(lines: list[str], start: int, *, max_lines: int = 48) -
             break
         block.append(line)
     return block
+
+
+def _normalize_country_text(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "").upper().replace("U.S.A", "USA").replace("U S A", "USA").replace("1N", "TN").replace("TM", "TN")).strip()
+
+
+def _country_label_from_text(text: str) -> str | None:
+    folded = _normalize_country_text(text)
+    if not folded:
+        return None
+    for code, label in _COUNTRY_LABELS:
+        if re.search(rf"\b{re.escape(code)}\b", folded) and re.search(rf"\b{re.escape(label)}\b", folded):
+            return f"{code} {label}"
+        if re.search(rf"\b{re.escape(label)}\b", folded):
+            return f"{code} {label}"
+        if re.search(rf"\b{re.escape(code)}\b", folded) and len(folded) <= 16:
+            return f"{code} {label}"
+    return None
+
+
+def _find_label_index(lines: list[str], label_pattern: str) -> int | None:
+    for idx, line in enumerate(lines):
+        if re.search(label_pattern, line, re.IGNORECASE):
+            return idx
+    return None
+
+
+def _collect_window_after_label(
+    lines: list[str],
+    label_pattern: str,
+    *,
+    stop_patterns: tuple[str, ...],
+    max_lines: int = 12,
+) -> list[str]:
+    idx = _find_label_index(lines, label_pattern)
+    if idx is None:
+        return []
+    window: list[str] = []
+    for line in lines[idx + 1 : idx + 1 + max_lines]:
+        if any(re.search(stop, line, re.IGNORECASE) for stop in stop_patterns):
+            break
+        if line.strip():
+            window.append(line)
+    return window
+
+
+def _first_party_line(window: list[str]) -> str | None:
+    for line in window:
+        clean = re.sub(r"\s+", " ", line).strip(" -|:;.,")
+        if not clean:
+            continue
+        if re.search(r"\b(?:EXPORTATEUR|IMPORTATEUR|DECLARANT|REPERTOIRE|CREDIT|NUMERO|TYPE|PAYS|DATE)\b", clean, re.IGNORECASE):
+            continue
+        if _CODE_MATRICULE_RE.fullmatch(clean):
+            continue
+        if _DATE_RE.fullmatch(clean):
+            continue
+        if re.fullmatch(r"[A-Z]{2,3}", clean):
+            continue
+        if re.search(r"\d", clean) and len(re.sub(r"[^A-Z]", "", clean)) < 4:
+            continue
+        m_code_line = _CL_CODE_LINE_RE.search(clean)
+        if m_code_line:
+            candidate = re.sub(r"\s+", " ", m_code_line.group(2)).strip(" -|:;.,")
+            if len(re.sub(r"[^A-Z]", "", candidate)) >= 3:
+                return candidate.upper()
+        if len(re.sub(r"[^A-Z]", "", clean)) >= 3:
+            return clean.upper()
+    return None
+
+
+def _first_address_line(window: list[str]) -> str | None:
+    for line in window:
+        clean = re.sub(r"\s+", " ", line).strip(" -|:;.,")
+        if not clean:
+            continue
+        if re.search(r"\b(?:SEKIT|EDDEYER|JAWDET|SOUKRA|SFAX|RUE|AVENUE)\b", clean, re.IGNORECASE) or re.search(r"\d", clean):
+            return clean.upper()
+    return None
+
+
+def _parse_label_driven_blocks(text: str) -> dict[str, Any]:
+    lines = _norm_lines(text)
+    if not lines:
+        return {}
+
+    out: dict[str, Any] = {}
+
+    export_window = _collect_window_after_label(
+        lines,
+        r"\bEXPORTATEUR\b",
+        stop_patterns=(r"\bIMPORTATEUR\b", r"\bDECLARANT\b", r"\bD[ÉE]CLARANT\b"),
+        max_lines=10,
+    )
+    import_window = _collect_window_after_label(
+        lines,
+        r"\bIMPORTATEUR\b",
+        stop_patterns=(r"\bDECLARANT\b", r"\bD[ÉE]CLARANT\b", r"\bPAYS\b"),
+        max_lines=14,
+    )
+    declarant_window = _collect_window_after_label(
+        lines,
+        r"\b(?:DECLARANT|D[ÉE]CLARANT)\b",
+        stop_patterns=(r"\bMOYEN\b", r"\bPAYS\b", r"\bTRANSPORT\b", r"\bCERTIFICAT\b"),
+        max_lines=14,
+    )
+
+    exp_name = _first_party_line(export_window)
+    if exp_name:
+        out["exportateur_nom"] = exp_name
+        out["exportateur"] = exp_name
+
+    imp_name = _first_party_line(import_window)
+    if imp_name:
+        out["importateur_nom"] = imp_name
+        out["importateur"] = imp_name
+
+    decl_name = _first_party_line(declarant_window)
+    if decl_name:
+        out["declarant_nom"] = decl_name
+        out["declarant"] = decl_name
+        out["nom_declarant"] = decl_name
+
+    exp_addr = _first_address_line(export_window)
+    if exp_addr and exp_addr != exp_name:
+        out.setdefault("adresse_exportateur", exp_addr)
+
+    imp_addr = _first_address_line(import_window)
+    if imp_addr and imp_addr != imp_name:
+        out.setdefault("adresse_importateur", imp_addr)
+
+    decl_addr = _first_address_line(declarant_window)
+    if decl_addr and decl_addr != decl_name:
+        out.setdefault("adresse_declarant", decl_addr)
+
+    for key, window in (
+        ("pays_provenance", _collect_window_after_label(lines, r"\bPAYS\s+DE\s+PROVENANCE\b", stop_patterns=(r"\bPAYS\s+D['’]?\s*ACHAT\b", r"\bPAYS\s+PREMIERE?\s+DESTINATION\b", r"\bPAYS\s+DESTINATION\s+DEFINITIVE\b"))),
+        ("pays_achat", _collect_window_after_label(lines, r"\bPAYS\s+D['’]?\s*ACHAT\b", stop_patterns=(r"\bPAYS\s+PREMIERE?\s+DESTINATION\b", r"\bPAYS\s+DESTINATION\s+DEFINITIVE\b", r"\bDECLARANT\b"))),
+        ("pays_premiere_destination", _collect_window_after_label(lines, r"\bPAYS\s+(?:DE\s+)?PREMI[ÈEÉÊ]RE?\s+DESTINATION\b", stop_patterns=(r"\bPAYS\s+(?:DE\s+)?DESTINATION\s+D[ÉE]FINITIVE\b", r"\bDECLARANT\b"))),
+        ("pays_destination_finale", _collect_window_after_label(lines, r"\bPAYS\s+(?:DE\s+)?DESTINATION\s+D[ÉE]FINITIVE\b", stop_patterns=(r"\bDECLARANT\b", r"\bMOYEN\b"))),
+    ):
+        country = _country_label_from_text(" ".join(window))
+        if country:
+            out[key] = country
+            if key == "pays_destination_finale":
+                out["pays_destination"] = country
+
+    for key, pattern in (("code_importateur", r"\b(CL\s*\d{1,4})\b"), ("exportateur_code", r"\b(\d{6,8}[A-Z])\b")):
+        scope = " ".join(lines)
+        m = re.search(pattern, scope, re.IGNORECASE)
+        if m:
+            out[key] = re.sub(r"\s+", "", m.group(1)).upper()
+
+    return out
 
 
 def _format_country_code_label(short: str, long_label: str) -> str:
@@ -299,6 +468,7 @@ def parse_embedded_pdf_layout(text: str) -> dict[str, Any]:
         parse_embedded_supplier_line(text),
         parse_embedded_article_section(text),
         parse_embedded_footer(text),
+        _parse_label_driven_blocks(text),
     ):
         for k, v in part.items():
             if v is not None and str(v).strip():

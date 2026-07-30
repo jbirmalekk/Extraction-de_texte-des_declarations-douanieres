@@ -1,0 +1,808 @@
+{
+  "session_id": "20260720_094218",
+  "zone_records": [
+    {
+      "field": "exportateur_nom",
+      "tag": "header_cell",
+      "ocr_text": "AN OE EH HE . TP",
+      "confidence": 0.3783,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_exportateur_nom.png",
+      "box": [
+        199,
+        116,
+        591,
+        165
+      ]
+    },
+    {
+      "field": "adresse_exportateur",
+      "tag": "header_cell",
+      "ocr_text": "PORTATEUR",
+      "confidence": 0.46,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_adresse_exportateur.png",
+      "box": [
+        199,
+        158,
+        591,
+        194
+      ]
+    },
+    {
+      "field": "exportateur_code",
+      "tag": "header_cell",
+      "ocr_text": "C",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_exportateur_code.png",
+      "box": [
+        578,
+        196,
+        686,
+        228
+      ]
+    },
+    {
+      "field": "code_importateur",
+      "tag": "header_cell",
+      "ocr_text": "A",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_code_importateur.png",
+      "box": [
+        199,
+        228,
+        321,
+        270
+      ]
+    },
+    {
+      "field": "importateur_nom",
+      "tag": "header_cell",
+      "ocr_text": "[ 7179",
+      "confidence": 0.8233,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_importateur_nom.png",
+      "box": [
+        335,
+        228,
+        524,
+        279
+      ]
+    },
+    {
+      "field": "importateur_pays_cell",
+      "tag": "header_cell",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "paddle",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_importateur_pays_cell.png",
+      "box": [
+        524,
+        228,
+        672,
+        279
+      ]
+    },
+    {
+      "field": "adresse_importateur",
+      "tag": "header_cell",
+      "ocr_text": "[A | | EE ERE RÉPERTOIRE ~ »I, N° CRÉDIT",
+      "confidence": 0.455,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_adresse_importateur.png",
+      "box": [
+        199,
+        279,
+        672,
+        321
+      ]
+    },
+    {
+      "field": "adresse_entreposage",
+      "tag": "header_cell",
+      "ocr_text": "4 ays de provenance A » 2 PB maT | a. cy",
+      "confidence": 0.6131,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_adresse_entreposage.png",
+      "box": [
+        713,
+        228,
+        1159,
+        283
+      ]
+    },
+    {
+      "field": "declarant_code",
+      "tag": "header_cell",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_declarant_code.png",
+      "box": [
+        294,
+        321,
+        421,
+        347
+      ]
+    },
+    {
+      "field": "declarant_nom",
+      "tag": "header_cell",
+      "ocr_text": "—————— VERS I'ÉTRANGER CE I OL OS SI",
+      "confidence": 0.4738,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_declarant_nom.png",
+      "box": [
+        199,
+        355,
+        659,
+        414
+      ]
+    },
+    {
+      "field": "pays_provenance",
+      "tag": "header_cell",
+      "ocr_text": "DE ALLEMAGNE",
+      "confidence": 0.5157,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_pays_provenance.png",
+      "box": [
+        736,
+        325,
+        983,
+        376
+      ]
+    },
+    {
+      "field": "pays_achat",
+      "tag": "header_cell",
+      "ocr_text": "me a hittin ie T pe? | aLLemac",
+      "confidence": 0.2013,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_pays_achat.png",
+      "box": [
+        1010,
+        325,
+        1253,
+        376
+      ]
+    },
+    {
+      "field": "pays_premiere_destination",
+      "tag": "header_cell",
+      "ocr_text": "woce | £jmoce j= ose og Livratson palment | Ach./vend. DAP 1 1 re wren . mem gy 3",
+      "confidence": 0.4937,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_pays_premiere_destination.png",
+      "box": [
+        736,
+        387,
+        983,
+        457
+      ]
+    },
+    {
+      "field": "pays_destination_finale",
+      "tag": "header_cell",
+      "ocr_text": "Ecneance Kr uy spensif, Engag. E | 27-11-2025 | > ZO an tad an machen AR iLa ae wb",
+      "confidence": 0.4011,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\header_cell_pays_destination_finale.png",
+      "box": [
+        1037,
+        387,
+        1253,
+        457
+      ]
+    },
+    {
+      "field": "exportateur_area",
+      "tag": "fixed_zone",
+      "ocr_text": "3 JAWDET ELHAYAT SOUKRA IM TEUR 2 AYS! ‘DRO SYSTEMS GMBH COC 11° CO",
+      "confidence": 0.8043,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_exportateur_area.png",
+      "box": [
+        186,
+        88,
+        591,
+        201
+      ]
+    },
+    {
+      "field": "exportateur_nom",
+      "tag": "fixed_zone",
+      "ocr_text": "EE NNORMTAREIR 2 ;¢ALL",
+      "confidence": 0.2125,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_exportateur_nom.png",
+      "box": [
+        199,
+        116,
+        591,
+        165
+      ]
+    },
+    {
+      "field": "adresse_exportateur",
+      "tag": "fixed_zone",
+      "ocr_text": "RO SS YSTEMS GMBH CO",
+      "confidence": 0.826,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_adresse_exportateur.png",
+      "box": [
+        199,
+        158,
+        591,
+        194
+      ]
+    },
+    {
+      "field": "numero_declaration",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_numero_declaration.png",
+      "box": [
+        691,
+        105,
+        830,
+        165
+      ]
+    },
+    {
+      "field": "date_declaration",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_date_declaration.png",
+      "box": [
+        834,
+        105,
+        972,
+        165
+      ]
+    },
+    {
+      "field": "type_declaration",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_type_declaration.png",
+      "box": [
+        986,
+        203,
+        1034,
+        253
+      ]
+    },
+    {
+      "field": "nbre_articles",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_nbre_articles.png",
+      "box": [
+        1057,
+        203,
+        1118,
+        253
+      ]
+    },
+    {
+      "field": "nombre_colis",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_nombre_colis.png",
+      "box": [
+        1180,
+        209,
+        1218,
+        249
+      ]
+    },
+    {
+      "field": "exportateur_code",
+      "tag": "fixed_zone",
+      "ocr_text": "C",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_exportateur_code.png",
+      "box": [
+        567,
+        196,
+        691,
+        228
+      ]
+    },
+    {
+      "field": "code_importateur",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.46,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_code_importateur.png",
+      "box": [
+        199,
+        228,
+        321,
+        270
+      ]
+    },
+    {
+      "field": "importateur_nom",
+      "tag": "fixed_zone",
+      "ocr_text": "ETARY ———",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_importateur_nom.png",
+      "box": [
+        335,
+        228,
+        524,
+        279
+      ]
+    },
+    {
+      "field": "adresse_importateur",
+      "tag": "fixed_zone",
+      "ocr_text": "RÉPERTOIRE ~ »I, N° CRÉDIT",
+      "confidence": 0.494,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_adresse_importateur.png",
+      "box": [
+        199,
+        275,
+        672,
+        321
+      ]
+    },
+    {
+      "field": "adresse_entreposage",
+      "tag": "fixed_zone",
+      "ocr_text": "4 ays de provenance A » 2 PB maT | a. cy",
+      "confidence": 0.6131,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_adresse_entreposage.png",
+      "box": [
+        713,
+        228,
+        1159,
+        283
+      ]
+    },
+    {
+      "field": "declarant_code",
+      "tag": "fixed_zone",
+      "ocr_text": "1",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_declarant_code.png",
+      "box": [
+        294,
+        321,
+        429,
+        347
+      ]
+    },
+    {
+      "field": "num_repertoire",
+      "tag": "fixed_zone",
+      "ocr_text": "1",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_num_repertoire.png",
+      "box": [
+        435,
+        317,
+        605,
+        347
+      ]
+    },
+    {
+      "field": "declarant_nom",
+      "tag": "fixed_zone",
+      "ocr_text": "—————— VERS I'ÉTRANGER CE I OL OS SI",
+      "confidence": 0.4738,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_declarant_nom.png",
+      "box": [
+        199,
+        355,
+        659,
+        414
+      ]
+    },
+    {
+      "field": "adresse_declarant",
+      "tag": "fixed_zone",
+      "ocr_text": "MOYEN DE TRANSPORT DE OU VERS I'ÉTRANGER CIS I GL GE GULL DAPEY LT AY PLA! “' — IDENTITÉ 5 PEAL) PA 8 GA ALITÉ | MODE ***N AVIRE*** DATE ARRIVÉE/DÉPAR RY BY A AE 44 SNEAE",
+      "confidence": 0.5615,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_adresse_declarant.png",
+      "box": [
+        191,
+        410,
+        672,
+        461
+      ]
+    },
+    {
+      "field": "pays_provenance",
+      "tag": "fixed_zone",
+      "ocr_text": "DE ALLEMAGNE",
+      "confidence": 0.6116,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_pays_provenance.png",
+      "box": [
+        736,
+        325,
+        983,
+        376
+      ]
+    },
+    {
+      "field": "pays_achat",
+      "tag": "fixed_zone",
+      "ocr_text": "DE ALLEMAGNE",
+      "confidence": 0.6264,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_pays_achat.png",
+      "box": [
+        1010,
+        325,
+        1253,
+        376
+      ]
+    },
+    {
+      "field": "pays_premiere_destination",
+      "tag": "fixed_zone",
+      "ocr_text": "1% Mode 18 Relat. 9 Livraison Ach.ivend. Ré DAP 1 2 Devig .§ PTFN by luni U",
+      "confidence": 0.5829,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_pays_premiere_destination.png",
+      "box": [
+        736,
+        387,
+        983,
+        457
+      ]
+    },
+    {
+      "field": "pays_destination_finale",
+      "tag": "fixed_zone",
+      "ocr_text": "Echéance J+! Jy= suspensif, Engag. Eng 7-11-202 25 Solde autres éléments +",
+      "confidence": 0.7038,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_pays_destination_finale.png",
+      "box": [
+        1037,
+        387,
+        1253,
+        457
+      ]
+    },
+    {
+      "field": "block_transport",
+      "tag": "fixed_zone",
+      "ocr_text": "Mode **NAVIRETT Date arriv 7 22-11. n de transport (marchandises en transitical ge nationalitransborde Mode Identité 4 j CAMION",
+      "confidence": 0.7289,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_block_transport.png",
+      "box": [
+        202,
+        435,
+        641,
+        560
+      ]
+    },
+    {
+      "field": "block_conditions",
+      "tag": "fixed_zone",
+      "ocr_text": "f° Mode 18 Relat. 719 Echéance Js! Sy ) ms Livraison Achivend.) Rég suspensif, Engag. E Ms DAP 1 741-202 épart fo Devis PTEN ala phat it «6127 Solde autres éléments 25 EUR 17100.000 _ Devis Devis a7 3) yn diam ae 23 2) Ad pat 5a) <p Cours de conversion de la devise de facturation Valeur douane totale 4 41907500 58477 795",
+      "confidence": 0.6123,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_block_conditions.png",
+      "box": [
+        682,
+        370,
+        1242,
+        609
+      ]
+    },
+    {
+      "field": "bureau_frontiere",
+      "tag": "fixed_zone",
+      "ocr_text": "1",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_bureau_frontiere.png",
+      "box": [
+        202,
+        598,
+        324,
+        647
+      ]
+    },
+    {
+      "field": "destination",
+      "tag": "fixed_zone",
+      "ocr_text": "7",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_destination.png",
+      "box": [
+        324,
+        598,
+        452,
+        647
+      ]
+    },
+    {
+      "field": "block_finances",
+      "tag": "fixed_zone",
+      "ocr_text": "Cours de conversion de la devise de facturation Valeur douane totale 3.4197500 58477.725 BO nb, aed pt (NOP) ID pet bape pi; he Code pays 3 Val. de pri Article n° origine sous rég.| 88073000011 1938",
+      "confidence": 0.6914,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_block_finances.png",
+      "box": [
+        675,
+        603,
+        1215,
+        687
+      ]
+    },
+    {
+      "field": "poids_brut",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_poids_brut.png",
+      "box": [
+        682,
+        799,
+        790,
+        850
+      ]
+    },
+    {
+      "field": "poids_net",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_poids_net.png",
+      "box": [
+        794,
+        799,
+        902,
+        850
+      ]
+    },
+    {
+      "field": "engagement_date",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_engagement_date.png",
+      "box": [
+        479,
+        630,
+        655,
+        681
+      ]
+    },
+    {
+      "field": "qualite_fiscale",
+      "tag": "fixed_zone",
+      "ocr_text": "1",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_qualite_fiscale.png",
+      "box": [
+        1097,
+        810,
+        1233,
+        861
+      ]
+    },
+    {
+      "field": "code_regime_financier",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_code_regime_financier.png",
+      "box": [
+        726,
+        943,
+        790,
+        979
+      ]
+    },
+    {
+      "field": "code_delai",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_code_delai.png",
+      "box": [
+        844,
+        943,
+        901,
+        979
+      ]
+    },
+    {
+      "field": "regime",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_regime.png",
+      "box": [
+        1010,
+        878,
+        1132,
+        947
+      ]
+    },
+    {
+      "field": "valeur_fob",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_valeur_fob.png",
+      "box": [
+        659,
+        962,
+        807,
+        1041
+      ]
+    },
+    {
+      "field": "douane",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_douane.png",
+      "box": [
+        799,
+        962,
+        956,
+        1041
+      ]
+    },
+    {
+      "field": "coefficient_ajustement",
+      "tag": "fixed_zone",
+      "ocr_text": "",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_coefficient_ajustement.png",
+      "box": [
+        1010,
+        977,
+        1226,
+        1053
+      ]
+    },
+    {
+      "field": "block_article_1",
+      "tag": "fixed_zone",
+      "ocr_text": "4a VuViwuvuY se tN Ltd x 22 5 eed (Headey Lendl! oak oa Code QCS acs PFN de larticle(en devise d: 06 57 17100.00 37 Poids brut(kg)(es) 85 35 # Poide net(kg) (45) 4-2 252 J? 130 §7 Cy) Sy pina Searbin Ayy pho 4 Régimes douaniers +»? imposition spéciale sollicités déclaré transit 362 poe, Réglement financier uF 4,23 ee) — 4 CReg. C.Délal Code QCl uméro Titre CE m1 411 304740 “a Valeuren dinars = Av: ad 5 F Douane | 58477.725 58477.725 BO 3 ut Bs (NOP) Sd gpd Magee ob; 2 Codepays FP Val. de Article n° origine sous",
+      "confidence": 0.5369,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_block_article_1.png",
+      "box": [
+        668,
+        666,
+        1232,
+        1005
+      ]
+    },
+    {
+      "field": "code_titre_ce_cell",
+      "tag": "fixed_zone",
+      "ocr_text": "4",
+      "confidence": 0.68,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_code_titre_ce_cell.png",
+      "box": [
+        907,
+        871,
+        1015,
+        935
+      ]
+    },
+    {
+      "field": "numero_titre_ce_cell",
+      "tag": "fixed_zone",
+      "ocr_text": "4",
+      "confidence": 0.0,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_numero_titre_ce_cell.png",
+      "box": [
+        1024,
+        871,
+        1218,
+        935
+      ]
+    },
+    {
+      "field": "texte_engagement_roi",
+      "tag": "fixed_zone",
+      "ocr_text": "1 Désignatio = : od +2 9 BR - ARIANA 81 Engagement Je,soussigné déciare .cous lee peines de drolies merchendises c-deseus 66s A Fégume(s) dovenier(s) Géfini(s) ci-deseus et m'engage & acquitter lee droits ot t me conformer aux io ot roglernents en vigueur sinel quisux condkions perticu : est eudordonnée ta présente opération imsae »?) B Je rengage & représenter intactes ot dans le déiei preecrtt ies marchandiess | en présente décterstion eu bureeu de destination. répertol Cc Je mieengege & produire le(e} document(s) codifié(e) pertolre [D Et nous soussignés Parte garantie | 9 [N° porter cavton du déclarant,nous engegecns solidairement avec hii 4 répondre t a 600 obligations relatives aux engagements A et 8 pour ls somme de(en lettres",
+      "confidence": 0.5858,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_texte_engagement_roi.png",
+      "box": [
+        799,
+        1688,
+        1226,
+        1993
+      ]
+    },
+    {
+      "field": "block_liquidation",
+      "tag": "fixed_zone",
+      "ocr_text": "att iS sO 6 3D . Montant us! N° d'escale| Rubrique Bureau de oo pi ihe c 9.000 Désignatio ern) 99999 od xt R 9 BR - ARIANA i) Engagemen = 132 Je.soussigné déciere .sous les peines de droitjes marchendises cideseus déeig A\\ régune(s) douenier(s) définis) ci-deseus et miengege & scquitter les droits ot tax me conformer aut ios et réghements en vigueur ainsi quisux condlions particullé 62 6 4a ytd 52) cae y! we mronmege 8 roprScantar ccs ot dana a te preecrt we marchansieee 6 Itinéraire ji Commisstonsire en B présente décteration au bureeu de destination. SFAX-RADES j,. agrément| N° répertoire |C Je mieengege & proguire le(s) document(s) cocitié(s} porter caution du déclerent nous engegeons soidairement avec ui @ répondre eye t : . . 606 obligations relstves aux engagements A et 8 pour le somme de(en lettres) 9.000 CS ke A wet Sey aby canes Jasoy ad N° Liquidation N° recette Ld E fino Pere | IN | rrr porter cauton du déciarent.nous engageans solidainement avec lui & présenter b chdesaue au tre de Fmamengpnt C dens les état impartion pour le somene os",
+      "confidence": 0.5354,
+      "engine": "tesseract",
+      "crop_path": "C:\\Users\\User\\OneDrive\\Bureau\\PFE_Master\\back_EMP\\ocr_debug_crops\\20260720_094218\\fixed_zone_block_liquidation.png",
+      "box": [
+        189,
+        1597,
+        1236,
+        2058
+      ]
+    }
+  ],
+  "final_party_fields": {
+    "exportateur_nom": "EE NNORMTAREIR 2 ALL",
+    "exportateur": "EE NNORMTAREIR 2 ALL",
+    "exportateur_code": "113819W",
+    "adresse_exportateur": "4 | 113 JAWDET ELHAYAT SOUKRA",
+    "importateur_nom": "AED S INA HYDRO SYSTEMS GMBH",
+    "importateur": "AED S INA HYDRO SYSTEMS GMBH",
+    "adresse_importateur": "3 a [o} arn Cc o,S §, —",
+    "declarant_nom": "A I EYE DE PROVENANCE AB ) 2 SA",
+    "declarant_code": "7179"
+  },
+  "field_reject_reasons": [
+    "adresse_exportateur_rejected_invalid_address",
+    "adresse_importateur_rejected_invalid_address",
+    "bureau_frontiere_template_override_rejected",
+    "declarant_code_rescued_label",
+    "declarant_nom_generic_label_window",
+    "declarant_nom_rejected_label_pollution",
+    "declarant_nom_synced_label_window",
+    "engagement_rescued_from_date_validation",
+    "importateur_nom_rejected_label_pollution",
+    "pays_achat_corrected_tn_from_label_window",
+    "qualite_fiscale_template_override_rejected"
+  ],
+  "flags_validation": [
+    "code_delai<->douane",
+    "code_regime_financier<->valeur_fob",
+    "exportateur_nom<->adresse_exportateur",
+    "overexposed",
+    "regime<->code_titre_ce_cell",
+    "regime<->numero_titre_ce_cell",
+    "valeur_fob<->douane"
+  ]
+}

@@ -28,9 +28,7 @@ import {
 	buildComparisonRows,
 	formatMoney,
 	getMontantAlignmentSummary,
-	isMontantAligned,
 } from '@/shared/utils/compareDisplay';
-import { exportComparisonReportPdf } from '@/shared/utils/reconciliationReportPdf';
 import { countComparisonIssues } from '@/shared/utils/reportContext';
 import { buildReconciliationPairRef } from '@/shared/utils/crossVerifyDisplay';
 import { loadCrossVerifyPreviews } from '@/shared/utils/compareDocumentPreview';
@@ -61,18 +59,28 @@ function CrossVerificationPage() {
 	const location = useLocation();
 	const { user } = useAuth();
 	const [session, setSession] = useState(() => getCrossVerificationSession());
-	const [phase, setPhase] = useState('select');
+	const [phase, setPhase] = useState(() =>
+		session?.redoReconciliation
+			? 'select'
+			: session?.partnerId && session?.comparisonResult
+				? 'compare'
+				: 'select'
+	);
 	const [dumDocs, setDumDocs] = useState([]);
 	const [invoices, setInvoices] = useState([]);
-	const [partnerId, setPartnerId] = useState('');
+	const [partnerId, setPartnerId] = useState(() =>
+		session?.partnerId ? String(session.partnerId) : ''
+	);
 	const [loadingLists, setLoadingLists] = useState(true);
 	const [isWorking, setIsWorking] = useState(false);
 	const [error, setError] = useState('');
-	const [comparison, setComparison] = useState(null);
+	const [comparison, setComparison] = useState(() =>
+		session?.redoReconciliation ? null : session?.comparisonResult ?? null
+	);
 	const [dumDetail, setDumDetail] = useState(null);
 	const [invoiceDetail, setInvoiceDetail] = useState(null);
-	const [dumPreview, setDumPreview] = useState(null);
-	const [invoicePreview, setInvoicePreview] = useState(null);
+	const [dumPreview, setDumPreview] = useState(() => session?.dumPreview ?? null);
+	const [invoicePreview, setInvoicePreview] = useState(() => session?.invoicePreview ?? null);
 	const [previewsLoading, setPreviewsLoading] = useState(false);
 	const [previewErrors, setPreviewErrors] = useState({ dum: '', invoice: '' });
 	const [hubDumId, setHubDumId] = useState('');
@@ -87,6 +95,10 @@ function CrossVerificationPage() {
 		sourceType === 'dum' ? Number(sourceId) : Number(partnerId || session?.partnerId);
 
 	const partnerKind = sourceType === 'dum' ? 'invoice' : 'dum';
+	const openingReportFromState =
+		Boolean(location.state?.openReport) &&
+		Number(location.state?.invoiceId) > 0 &&
+		Number(location.state?.dumId) > 0;
 
 	const loadLists = useCallback(async () => {
 		setLoadingLists(true);
@@ -109,8 +121,12 @@ function CrossVerificationPage() {
 	}, [user]);
 
 	useEffect(() => {
+		if (openingReportFromState || phase === 'compare') {
+			setLoadingLists(false);
+			return;
+		}
 		loadLists();
-	}, [loadLists]);
+	}, [openingReportFromState, phase, loadLists]);
 
 	const hydrateDocumentPreviews = useCallback(
 		async (dumDocId, invId, sess = session, dumDoc = dumDetail, inv = invoiceDetail) => {
@@ -120,6 +136,12 @@ function CrossVerificationPage() {
 			setPreviewsLoading(true);
 			setPreviewErrors({ dum: '', invoice: '' });
 			try {
+				const storedDumPreview = sess?.dumPreview;
+				const storedInvoicePreview = sess?.invoicePreview;
+				if (storedDumPreview?.dataUrl || storedInvoicePreview?.dataUrl) {
+					setDumPreview(storedDumPreview ?? null);
+					setInvoicePreview(storedInvoicePreview ?? null);
+				}
 				const {
 					dumPreview: dumPrev,
 					invoicePreview: invPrev,
@@ -439,21 +461,6 @@ function CrossVerificationPage() {
 				setInvoiceDetail(invDetail);
 				setDumDetail(dumDoc);
 
-				const {
-					dumPreview: dumPrev,
-					invoicePreview: invPrev,
-					errors: previewLoadErrors,
-				} = await loadCrossVerifyPreviews({
-					dumId: compareDumId,
-					invoiceId: compareInvoiceId,
-					session: activeSession,
-					dumDoc,
-					invoice: invDetail,
-				});
-				setDumPreview(dumPrev);
-				setInvoicePreview(invPrev);
-				setPreviewErrors(previewLoadErrors);
-
 				const nextSession = updateCrossVerificationSession({
 					sourceType: activeSession?.sourceType || 'invoice',
 					sourceId: activeSession?.sourceId || compareInvoiceId,
@@ -466,16 +473,40 @@ function CrossVerificationPage() {
 					invoiceId: compareInvoiceId,
 					dumDocumentId: compareDumId,
 					comparisonResult: result,
-					dumPreview: dumPrev,
-					invoicePreview: invPrev,
 					redoReconciliation: false,
 				});
 				setSession(nextSession);
 				setPhase('compare');
+				setPreviewsLoading(true);
+				setPreviewErrors({ dum: '', invoice: '' });
+				const {
+					dumPreview: dumPrev,
+					invoicePreview: invPrev,
+					errors: previewLoadErrors,
+				} = await loadCrossVerifyPreviews({
+					dumId: compareDumId,
+					invoiceId: compareInvoiceId,
+					session: nextSession,
+					dumDoc,
+					invoice: invDetail,
+				});
+				setDumPreview(dumPrev);
+				setInvoicePreview(invPrev);
+				setPreviewErrors(previewLoadErrors);
+				try {
+					const previewSession = updateCrossVerificationSession({
+						dumPreview: dumPrev,
+						invoicePreview: invPrev,
+					});
+					setSession(previewSession);
+				} catch {
+					// Preview cache is optional.
+				}
 			} catch (err) {
 				const detail = err?.response?.data?.detail;
 				setError(typeof detail === 'string' ? detail : 'Échec de la comparaison. Réessayez.');
 			} finally {
+				setPreviewsLoading(false);
 				setIsWorking(false);
 			}
 		},
@@ -722,10 +753,13 @@ function CrossVerificationPage() {
 		navigate(`/import?docType=${partnerImportType}&returnTo=cross-verification`);
 	};
 
-	const handleExportReport = () => {
+	const handleExportReport = async () => {
 		if (!comparison) {
 			return;
 		}
+		const { exportComparisonReportPdf } = await import(
+			'@/shared/utils/reconciliationReportPdf'
+		);
 		exportComparisonReportPdf({
 			comparison,
 			dumDetail,

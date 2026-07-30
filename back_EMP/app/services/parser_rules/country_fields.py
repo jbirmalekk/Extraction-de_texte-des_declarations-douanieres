@@ -25,10 +25,6 @@ def extract_country_fields(data, source):
         name = re.sub(r"\s+", " ", match.group(2).upper()).replace("U S A", "USA")
         return code, name
 
-    pairs = [as_pair(match) for match in country_re.finditer(folded)]
-    if not pairs:
-        return
-
     def find_after(label_pattern):
         for label_match in re.finditer(label_pattern, folded, re.IGNORECASE):
             window = folded[label_match.end():label_match.end() + 260]
@@ -44,27 +40,17 @@ def extract_country_fields(data, source):
         "pays_destination_finale": find_after(r"(?:PAYS\s+(?:DE\s+)?)?DESTINATION\s+DEFINITIVE"),
     }
 
-    tns = [pair for pair in pairs if pair[0] == "TN"]
-    foreigns = [pair for pair in pairs if pair[0] != "TN"]
-
-    contextual["pays_provenance"] = contextual["pays_provenance"] or (tns[0] if tns else None)
-    contextual["pays_achat"] = contextual["pays_achat"] or (tns[1] if len(tns) > 1 else (tns[0] if tns else None))
-    contextual["pays_premiere_destination"] = contextual["pays_premiere_destination"] or (foreigns[0] if foreigns else None)
-    contextual["pays_destination_finale"] = contextual["pays_destination_finale"] or (
-        foreigns[1] if len(foreigns) > 1 else (foreigns[0] if foreigns else None)
-    )
-
     for field, pair in contextual.items():
         if pair:
-            _set_field(data, field, _country_label(*pair), force=True)
+            _set_field(data, field, _country_label(*pair))
 
     if contextual["pays_destination_finale"]:
-        _set_field(data, "pays_destination", _country_label(*contextual["pays_destination_finale"]), force=True)
+        _set_field(data, "pays_destination", _country_label(*contextual["pays_destination_finale"]))
 
-    if tns:
-        tn_label = _country_label(*tns[0])
-        _set_field(data, "transport_international_nationalite", tn_label, force=True)
-        _set_field(data, "transport_national_nationalite", tn_label, force=True)
+    if contextual["pays_provenance"]:
+        tn_label = _country_label(*contextual["pays_provenance"])
+        _set_field(data, "transport_international_nationalite", tn_label)
+        _set_field(data, "transport_national_nationalite", tn_label)
 
-    if foreigns:
-        _set_field(data, "importateur_pays", _country_label(*foreigns[0]), force=True)
+    if contextual["pays_premiere_destination"]:
+        _set_field(data, "importateur_pays", _country_label(*contextual["pays_premiere_destination"]))

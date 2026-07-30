@@ -7,7 +7,12 @@ from app.services.ocr.dynamic_field_mapper import extract_dynamic_fields
 from app.services.ocr.header_cell_ocr import extract_header_cell_fields
 from app.services.ocr.zone_debug import save_zone_crop
 from app.config import settings
-from app.services.parser_rules.customs_helpers import extract_titre_ce_pair, _looks_like_garbled_party_name
+from app.services.parser_rules.customs_helpers import (
+    extract_titre_ce_pair,
+    _looks_like_bad_importer,
+    _looks_like_garbled_declarant_name,
+    _looks_like_garbled_party_name,
+)
 
 
 _ZONE_CONFLICTS = validate_isolated_non_overlap()
@@ -247,6 +252,8 @@ def _clean_declarant_cell(value):
     text = re.sub(r"\b(?:DECLARANT|D[ÉE]CLARANT|REPERTOIRE|CODE)\b", " ", upper)
     text = re.sub(r"[^A-Z0-9&.\- ]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip(" -|")
+    if re.search(r"\b(?:TRANSPORT|TRANGER|ETRANGER|REPERTOIRE|CREDIT|CODE|NUMERO|PAYS|ADRESSE|DATE|MOYEN|ROUTIER|MARITIME)\b", text):
+        return None
     if len(re.sub(r"[^A-Z]", "", text)) >= 4:
         return text
     return None
@@ -259,11 +266,17 @@ def _clean_declarant_name_cell(value):
     text = re.sub(r"\b(?:DECLARANT|D[ÉE]CLARANT|NOM)\b", " ", text)
     text = re.sub(r"[^A-Z0-9&.\- ]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip(" -|:;,.")
+    if text == "EMP":
+        return text
     if FORBIDDEN_DECLARANT_NAME_TOKENS.search(text):
+        return None
+    if _looks_like_garbled_declarant_name(text):
         return None
     if re.search(r"\b(?:SFAX|TUNIS|SOUSSE|SEKIT|EDDEYER|RUE|AV(?:ENUE)?)\b", text):
         return None
     if re.search(r"\b(?:TRANGER|ETRANGER)\b", text) or re.search(r"\bVERS\s+I\b", text):
+        return None
+    if re.search(r"\b(?:TRANSPORT|REPERTOIRE|CREDIT|CODE|NUMERO|PAYS|ADRESSE|DATE|MOYEN|ROUTIER|MARITIME)\b", text):
         return None
     if re.match(r"^\d{2,6}\b", text):
         return None
@@ -357,6 +370,10 @@ def _clean_importer_name_cell(value):
 
     cleaned_noise = strip_importateur_ocr_noise(value)
     if cleaned_noise:
+        if re.search(r"\b(?:IMPORTATEUR|GERMANY|DEUTSCHLAND|ALLEMAGNE|FRANCE|TUNISIE|ITALIE)\b", cleaned_noise):
+            return None
+        if _looks_like_bad_importer(cleaned_noise):
+            return None
         return cleaned_noise
     if _looks_like_garbled_party_name(value, role="import"):
         return None
@@ -365,6 +382,8 @@ def _clean_importer_name_cell(value):
     text = re.sub(r"[^A-Z0-9&.\- ]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip(" -|:;,.")
     if FORBIDDEN_IMPORTATEUR_NAME_TOKENS.search(text):
+        return None
+    if _looks_like_bad_importer(text):
         return None
     # If line starts with a number (zip/street), it is likely an address.
     if re.match(r"^\d{2,6}\b", text):
@@ -640,8 +659,8 @@ def _extract_direct_fields(raw):
     for field, bounds in (
         ("bureau_frontiere", (1, 99)),
         ("destination", (1, 999)),
-        ("poids_brut", (1, 99999)),
-        ("poids_net", (1, 99999)),
+        ("poids_brut", (5, 99999)),
+        ("poids_net", (5, 99999)),
         ("qualite_fiscale", (1, 99)),
         ("code_regime_financier", (10, 99)),
         ("code_delai", (10, 99)),
@@ -1022,7 +1041,7 @@ def _valid_weight_token(token):
         value = int(str(token))
     except Exception:
         return None
-    if value < 1 or value > 99999:
+    if value < 5 or value > 99999:
         return None
     return str(value)
 
@@ -1221,46 +1240,8 @@ def _extract_guided_country_fields(text):
     out["pays_achat"] = _extract(r"\bPAYS\s+D['’]?\s*ACHAT\b")
     out["pays_premiere_destination"] = _extract(r"\bPAYS\s+PREMIERE?\s+DESTINATION\b")
     out["pays_destination_finale"] = _extract(r"\bPAYS\s+DESTINATION\s+DEFINITIVE\b")
-    # Cleanup None values
+    # Cleanup None values only; no cross-field forcing here.
     out = {k: v for k, v in out.items() if v}
-    if out.get("pays_provenance") and "ALLEMAGNE" in out["pays_provenance"].upper():
-        prov = re.search(r"\bPAYS\s+DE\s+PROVENANCE\b([\s\S]{0,160})", src, re.IGNORECASE)
-        if prov and re.search(r"\b(TN|TUNISIE)\b", prov.group(1), re.IGNORECASE):
-            out["pays_provenance"] = "TN TUNISIE"
-    if out.get("pays_provenance") and re.search(r"\b(CN|CHINE)\b", out["pays_provenance"].upper()):
-        prov = re.search(r"\bPAYS\s+DE\s+PROVENANCE\b([\s\S]{0,220})", src, re.IGNORECASE)
-        if prov and re.search(r"\b(TN|TUNISIE)\b", prov.group(1), re.IGNORECASE):
-            out["pays_provenance"] = "TN TUNISIE"
-    if out.get("pays_provenance") and re.search(r"^(US|FR)\s", out["pays_provenance"].upper()):
-        prov = re.search(r"\bPAYS\s+DE\s+PROVENANCE\b([\s\S]{0,220})", src, re.IGNORECASE)
-        if prov and re.search(r"\b(TN|TUNISIE)\b", prov.group(1), re.IGNORECASE):
-            out["pays_provenance"] = "TN TUNISIE"
-    if out.get("pays_achat") and re.search(r"^(US|FR)\s", out["pays_achat"].upper()):
-        ach = re.search(r"\bPAYS\s+D['’]?\s*ACHAT\b([\s\S]{0,220})", src, re.IGNORECASE)
-        if ach and re.search(r"\b(TN|TUNISIE)\b", ach.group(1), re.IGNORECASE):
-            out["pays_achat"] = "TN TUNISIE"
-    if not out.get("pays_achat") and out.get("pays_provenance"):
-        ach = re.search(r"\bPAYS\s+D['’]?\s*ACHAT\b([\s\S]{0,220})", src, re.IGNORECASE)
-        if ach and re.search(r"\b(TN|TUNISIE)\b", ach.group(1), re.IGNORECASE):
-            out["pays_achat"] = "TN TUNISIE"
-    if out.get("pays_premiere_destination") and "ALLEMAGNE" in out["pays_premiere_destination"].upper():
-        prem = re.search(r"\bPAYS\s+PREMIERE?\s+DESTINATION\b([\s\S]{0,220})", src, re.IGNORECASE)
-        if prem and re.search(r"\b(US|USA|U\.?\s*S\.?\s*A\.?)\b", prem.group(1), re.IGNORECASE):
-            out["pays_premiere_destination"] = "US USA"
-    if out.get("pays_destination_finale"):
-        dest_chunk = re.search(r"\bPAYS\s+DESTINATION\s+DEFINITIVE\b([\s\S]{0,220})", src, re.IGNORECASE)
-        if dest_chunk:
-            chunk_u = dest_chunk.group(1).upper()
-            cur_u = out["pays_destination_finale"].upper()
-            if re.search(r"\b(PT|PORTUGAL)\b", chunk_u):
-                out["pays_destination_finale"] = _country_cell_value("PT") or "PT PORTUGAL"
-                out["pays_destination"] = out["pays_destination_finale"]
-            elif re.search(r"\b(CY|CHYPRE)\b", chunk_u):
-                out["pays_destination_finale"] = _country_cell_value("CY") or "CY CHYPRE"
-                out["pays_destination"] = out["pays_destination_finale"]
-            elif re.search(r"\b(FR|FRANCE)\b", chunk_u) and re.search(r"\b(DE|ALLEMAGNE)\b", cur_u):
-                out["pays_destination_finale"] = "FR FRANCE"
-                out["pays_destination"] = out["pays_destination_finale"]
     if out.get("pays_destination_finale"):
         out.setdefault("pays_destination", out["pays_destination_finale"])
     return out
